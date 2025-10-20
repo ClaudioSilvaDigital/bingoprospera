@@ -146,7 +146,7 @@ app.post('/cards/:cardId/marks', (req,res)=>{
 });
 
 app.post('/sessions/:id/claim', (req,res)=>{
-  res.json({ status: 'approved', reason: null, winner: { playerId: 'mock', cardId: 'mock', place: 1 }});
+  res.json({ status: 'approved', reason: null, winner: { playerId: 'mock', cardId: 'mock', place: 1 } });
 });
 
 app.get('/sessions/:id/analytics', (req,res)=>{
