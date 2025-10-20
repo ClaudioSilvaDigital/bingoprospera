@@ -1,10 +1,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { normalizeBaseUrl } from "../../lib/url";
 
-const API_BASE = (typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:10000')
-  : process.env.NEXT_PUBLIC_API_BASE) as string;
+const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
+const API_BASE = normalizeBaseUrl(RAW);
 
 export default function Play(){
   const router = useRouter();

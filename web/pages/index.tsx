@@ -1,9 +1,9 @@
 
 import { useState } from "react";
+import { normalizeBaseUrl } from "../lib/url";
 
-const API_BASE = (typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:10000')
-  : process.env.NEXT_PUBLIC_API_BASE) as string;
+const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
+const API_BASE = normalizeBaseUrl(RAW);
 
 export default function Home(){
   const [sessionId, setSessionId] = useState<string>('');

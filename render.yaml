@@ -1,4 +1,4 @@
-# Render Blueprint - Prospera Bingo (fixed2)
+# Render Blueprint - Prospera Bingo (fixed3)
 services:
   - type: web
     name: prospera-bingo-api
@@ -40,12 +40,12 @@ services:
         fromService:
           name: prospera-bingo-api
           type: web
-          property: url
+          property: host
       - key: NEXT_PUBLIC_WS_BASE
         fromService:
           name: prospera-bingo-api
           type: web
-          property: url
+          property: host
 
   - type: web
     name: prospera-bingo-metabase
@@ -66,6 +66,9 @@ services:
     name: prospera-bingo-redis
     plan: starter
     region: oregon
+    ipAllowList:
+      - source: "0.0.0.0/0"
+        description: "Open for initial setup (adjust later)"
 
 databases:
   - name: prospera-bingo-postgres
