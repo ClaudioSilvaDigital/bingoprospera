@@ -1,16 +1,17 @@
 
-# Prospera Bingo • Boilerplate (Render)
+# Prospera Bingo • Boilerplate (Render FIXED)
 
-- `render.yaml`: cria API, Web, Postgres, Redis e Metabase.
-- `api/`: Node + Express + Socket.IO (memória). Pronto para subir e testar sorteio, players e cartelas.
-- `web/`: Next.js mínimo para criar sessão e entrar como jogador.
+- `render.yaml` corrigido (Redis é um **service type** dentro de `services`, não uma chave de topo).
+- `api/` e `web/` prontos para deploy.
+- Metabase configurado como serviço Docker do tipo **web**.
 
-## Uso rápido
-1) Suba este repositório no GitHub.
-2) No Render: **Blueprint** -> aponte para o repo -> Apply.
-3) Abra `prospera-bingo-web` -> `NEXT_PUBLIC_API_BASE` já estará ligado à API.
-4) Teste: crie sessão na home, depois abra `/play/{id}`.
+## Deploy
+1) Suba este diretório para um repositório GitHub.
+2) No Render: **Blueprints → New** → cole a URL do repositório.
+3) Apply. O Render criará Postgres, Redis, API, Web e Metabase.
+4) Abra o serviço **prospera-bingo-web** e teste.
 
-### Depois
-- Plugar Prisma + Postgres usando o schema que já te entreguei.
-- Conectar Metabase ao Postgres e criar dashboards.
+## Observações
+- Em `prospera-bingo-web`, as variáveis `NEXT_PUBLIC_API_BASE` e `NEXT_PUBLIC_WS_BASE` recebem a **URL** da API via `fromService.property=url`.
+- Depois você pode plugar Prisma + Postgres seguindo o schema que já tem.
+

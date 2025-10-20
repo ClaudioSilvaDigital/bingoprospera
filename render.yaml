@@ -1,13 +1,14 @@
 
+# Render Blueprint - Prospera Bingo (fixed)
 services:
   - type: web
     name: prospera-bingo-api
     env: node
     plan: starter
     region: oregon
+    rootDir: api
     buildCommand: "pnpm i && pnpm build"
     startCommand: "pnpm start"
-    rootDir: api
     autoDeploy: true
     envVars:
       - key: PORT
@@ -20,8 +21,8 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
           name: prospera-bingo-redis
+          type: redis
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
@@ -31,29 +32,28 @@ services:
     env: node
     plan: starter
     region: oregon
+    rootDir: web
     buildCommand: "pnpm i && pnpm build"
     startCommand: "pnpm start"
-    rootDir: web
     autoDeploy: true
     envVars:
       - key: NEXT_PUBLIC_API_BASE
         fromService:
           name: prospera-bingo-api
           type: web
-          property: host
+          property: url
       - key: NEXT_PUBLIC_WS_BASE
         fromService:
           name: prospera-bingo-api
           type: web
-          property: host
+          property: url
 
-  - type: pserv
+  - type: web
     name: prospera-bingo-metabase
-    runtime: docker
     plan: starter
     region: oregon
-    image:
-      url: metabase/metabase:latest
+    runtime: docker
+    dockerImage: metabase/metabase:latest
     envVars:
       - key: MB_DB_FILE
         value: /metabase.db/metabase.db
@@ -62,12 +62,12 @@ services:
       mountPath: /metabase.db
       sizeGB: 1
 
-databases:
-  - name: prospera-bingo-postgres
+  - type: redis
+    name: prospera-bingo-redis
     plan: starter
     region: oregon
 
-redis:
-  - name: prospera-bingo-redis
+databases:
+  - name: prospera-bingo-postgres
     plan: starter
     region: oregon

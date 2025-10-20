@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
 
 const API_BASE = (typeof window !== 'undefined'
@@ -23,7 +23,7 @@ export default function Play(){
 
   return (
     <main style={{maxWidth: 640, margin:'40px auto', padding:'0 16px', fontFamily:'system-ui'}}>
-      <h1>Entrar na sessão {id as string}</h1>
+      <h1>Entrar na sessão {String(id)}</h1>
       <div style={{display:'grid', gap:12}}>
         <input value={name} onChange={e=>setName(e.target.value)} />
         <button onClick={join}>Entrar</button>

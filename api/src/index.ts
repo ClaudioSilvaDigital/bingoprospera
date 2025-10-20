@@ -129,7 +129,7 @@ app.post('/sessions/:id/players', (req,res)=>{
   const name = parsed.data.displayName;
   const playerId = uid(8);
   s.players.push(playerId);
-  // Generate deterministic card
+  // deterministic card
   const seed = hashString(s.id + "::" + name);
   const rng = mulberry32(seed);
   const pool = [...TERM_POOL];
@@ -139,12 +139,6 @@ app.post('/sessions/:id/players', (req,res)=>{
   const layout:string[][]=[];
   for(let r=0;r<s.rows;r++) layout.push(pick.slice(r*s.cols,(r+1)*s.cols));
   res.status(201).json({ playerId, cardId: playerId, gridRows: s.rows, gridCols: s.cols, layout });
-});
-
-app.get('/sessions/:id/cards/:playerId', (req,res)=>{
-  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
-  // For demo, regenerate based on name is not available; this endpoint is placeholder
-  return res.status(501).json({error:'Not implemented in boilerplate'});
 });
 
 app.post('/cards/:cardId/marks', (req,res)=>{
