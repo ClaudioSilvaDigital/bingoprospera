@@ -1,4 +1,4 @@
-# Render Blueprint - Prospera Bingo (fixed3)
+# Render Blueprint - Prospera Bingo (FIXED4: minimal, schema-safe)
 services:
   - type: web
     name: prospera-bingo-api
@@ -18,11 +18,6 @@ services:
         fromDatabase:
           name: prospera-bingo-postgres
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: prospera-bingo-redis
-          type: redis
-          property: connectionString
       - key: JWT_SECRET
         generateValue: true
 
@@ -41,34 +36,6 @@ services:
           name: prospera-bingo-api
           type: web
           property: host
-      - key: NEXT_PUBLIC_WS_BASE
-        fromService:
-          name: prospera-bingo-api
-          type: web
-          property: host
-
-  - type: web
-    name: prospera-bingo-metabase
-    env: docker
-    plan: starter
-    region: oregon
-    image:
-      url: metabase/metabase:latest
-    envVars:
-      - key: MB_DB_FILE
-        value: /metabase.db/metabase.db
-    disk:
-      name: metabase-disk
-      mountPath: /metabase.db
-      sizeGB: 1
-
-  - type: redis
-    name: prospera-bingo-redis
-    plan: starter
-    region: oregon
-    ipAllowList:
-      - source: "0.0.0.0/0"
-        description: "Open for initial setup (adjust later)"
 
 databases:
   - name: prospera-bingo-postgres

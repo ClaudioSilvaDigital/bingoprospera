@@ -31,16 +31,16 @@ const SESS: Record<string, Session> = {};
 const TERM_POOL = ["Pertencimento","Orgulho","Colaboração","Metas","Soul Up","Comunicação","Reconhecimento",
 "União","Transparência","Respeito","Ajuda","Sprint","Solução","Aprendizado","Feedback",
 "Proatividade","Conhecimento","Superação","Celebração","Decisão","Motivação","Energia",
-"Alegria","Confiança","Comprometimento","Cuidado","Crescimento","Segurança","Equipe",
+"Alegria","Confiança","Comprometimento","Crescimento","Segurança","Equipe",
 "Abóbora","Poção","Fantasma","Bruxa","Travessura","Vassoura","Doces","Caveira","Múmia","Feitiço",
-"Onboarding","Integração","OKR","KPI","Sprint OK","Review","Daily","Planning","Backlog","Refino",
+"Onboarding","Integração","OKR","KPI","Review","Daily","Planning","Backlog","Refino",
 "QA","Deploy","Bug","Code","Design","UX","UI","Roadmap","Sinergia","Autonomia","Foco",
 "Cliente","NPS","CSAT","Receita","Churn","Upsell","Cross-sell","Lead","Pipeline","CAC",
 "LTV","SEO","Conteúdo","CTA","Cópia","Brand","Storytelling","Mídia","Orçamento","Compliance",
 "Pontos ECOA","Selo Verde","Vale Energia","ECOA Social","Impacto","ODS","Escopo 3","Carbono",
-"Token","Ética","Governança","Diversidade","Equidade","Inclusão","Sustentável",
-"Saúde","Pausa","Alongamento","Hidratação","Café","Bem-estar","Humor","Conexão","Música","Feriado",
-"Gamificação","Badge","Recompensa","App","Check-in","Pontos","Desconto","Sorteio","Prêmio",
+"Ética","Governança","Diversidade","Equidade","Inclusão","Sustentável",
+"Saúde","Pausa","Hidratação","Bem-estar","Humor","Conexão","Música","Feriado",
+"Gamificação","Badge","Recompensa","App","Check-in","Pontos","Sorteio","Prêmio",
 "Inovação","Resultado","Entrega","Evolução","Excelência","Resiliência","Autoconfiança",
 "Liderança","Visão","Clareza","Estratégia","Transformação","Sucesso","Propósito","Impacto Real"];
 
@@ -129,7 +129,6 @@ app.post('/sessions/:id/players', (req,res)=>{
   const name = parsed.data.displayName;
   const playerId = uid(8);
   s.players.push(playerId);
-  // deterministic card
   const seed = hashString(s.id + "::" + name);
   const rng = mulberry32(seed);
   const pool = [...TERM_POOL];

@@ -1,14 +1,15 @@
 
-# Prospera Bingo • Boilerplate (Render FIXED3)
+# Prospera Bingo • Blueprint FIXED4 (mínimo confiável)
 
-Correções aplicadas:
-- `fromService.property` agora usa **host** (o Render só aceita: host, hostport, port, connectionString).
-- Front-end normaliza `NEXT_PUBLIC_API_BASE`: se vier só o host, ele prefixa `https://` automaticamente (e `ws://`/`wss://` para sockets).
-- Redis com `ipAllowList` exigido pelo Render.
+Este blueprint cria **API**, **WEB** e **Postgres** — nada além — para evitar erros de schema.
+Depois você pode criar **Redis** e **Metabase** manualmente pelo painel, sem YAML.
 
-## Deploy
-1) Suba o repositório no GitHub com este `render.yaml`.
-2) No Render → Blueprints → New → cole a URL do repositório → Apply.
-3) Abra o serviço **prospera-bingo-web** e teste criar sessão.
+## Passos
+1) Suba este repositório no GitHub (substitua o `render.yaml` antigo).
+2) No Render → Blueprints → New → cole a URL.
+3) Apply. Deve criar os 3 recursos sem erro.
+4) Abra o serviço web e teste criar uma sessão.
 
-**Nota de segurança**: o `ipAllowList` para Redis está aberto (`0.0.0.0/0`) para facilitar o primeiro deploy. Depois, restrinja para os IPs dos seus serviços ou desabilite acesso público e use apenas a **internal connection**.
+### Depois (opcional, pelo painel)
+- **Redis:** New → Redis → Create (copie a connection string para `REDIS_URL` da API).
+- **Metabase:** New → Web Service → "Deploy an existing image" → `metabase/metabase:latest`.
