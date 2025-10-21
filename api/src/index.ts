@@ -28,6 +28,19 @@ type Session = {
   status: 'pending'|'running'|'paused'|'ended';
   players: string[];
 };
+type Claim = {
+  id: string;
+  sessionId: string;
+  playerName: string;
+  playerId: string;
+  layout: string[][];        // snapshot da cartela do jogador
+  marks: Array<[number, number]>;
+  declaredAt: number;
+  clientHasBingo: boolean;   // validação feita no cliente (enviada)
+  serverCheck: 'unknown' | 'valid' | 'invalid';
+};
+
+const CLAIMS: Record<string, Claim[]> = {}; // por sessão
 
 const SESS: Record<string, Session> = {};
 
@@ -40,7 +53,7 @@ const TERM_POOL = ["Pertencimento","Orgulho","Colaboração","Metas","Soul Up","
 "QA","Deploy","Bug","Code","Design","UX","UI","Roadmap","Sinergia","Autonomia","Foco",
 "Cliente","NPS","CSAT","Receita","Churn","Upsell","Cross-sell","Lead","Pipeline","CAC",
 "LTV","SEO","Conteúdo","CTA","Cópia","Brand","Storytelling","Mídia","Orçamento","Compliance",
-"Pontos ECOA","Selo Verde","Vale Energia","ECOA Social","Impacto","ODS","Escopo 3","Carbono",
+"Pontos Ecoa","Selo Verde","Vale Energia","Encantar","Impacto","ODS","Escopo 3","Carbono",
 "Ética","Governança","Diversidade","Equidade","Inclusão","Sustentável",
 "Saúde","Pausa","Hidratação","Bem-estar","Humor","Conexão","Música","Feriado",
 "Gamificação","Badge","Recompensa","App","Check-in","Pontos","Sorteio","Prêmio",
@@ -82,6 +95,38 @@ io.on('connection', (socket)=>{
     socket.emit('hello', {ok:true});
   });
 });
+
+function keyRC(r:number,c:number){ return `${r},${c}`; }
+
+function hasBingoServer(layout: string[][], marks: Array<[number,number]>): boolean {
+  const R = layout.length;
+  const C = layout[0]?.length || 0;
+  const set = new Set(marks.map(([r,c])=>keyRC(r,c)));
+  if (!R || !C) return false;
+
+  // linhas
+  for (let r=0;r<R;r++){
+    let ok=true; for(let c=0;c<C;c++) if(!set.has(keyRC(r,c))){ ok=false; break; }
+    if(ok) return true;
+  }
+  // colunas
+  for (let c=0;c<C;c++){
+    let ok=true; for(let r=0;r<R;r++) if(!set.has(keyRC(r,c))){ ok=false; break; }
+    if(ok) return true;
+  }
+  // diagonais
+  {
+    let ok=true; for(let i=0;i<Math.min(R,C);i++) if(!set.has(keyRC(i,i))){ ok=false; break; }
+    if(ok) return true;
+  }
+  {
+    let ok=true; for(let i=0;i<Math.min(R,C);i++) if(!set.has(keyRC(i,C-1-i))){ ok=false; break; }
+    if(ok) return true;
+  }
+  return false;
+}
+
+
 
 app.post('/sessions', (req,res)=>{
   const schema = z.object({
@@ -148,8 +193,39 @@ app.post('/cards/:cardId/marks', (req,res)=>{
 });
 
 app.post('/sessions/:id/claim', (req,res)=>{
-  res.json({ status: 'approved', reason: null, winner: { playerId: 'mock', cardId: 'mock', place: 1 } });
+  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
+
+  // payload do cliente
+  const schema = z.object({
+    playerId: z.string().min(1),
+    playerName: z.string().min(1),
+    layout: z.array(z.array(z.string())),            // snapshot da cartela do jogador
+    marks: z.array(z.tuple([z.number().int(), z.number().int()])), // [[r,c],...]
+    clientHasBingo: z.boolean()
+  });
+  const parsed = schema.safeParse(req.body);
+  if(!parsed.success) return res.status(400).json(parsed.error);
+
+  const { playerId, playerName, layout, marks, clientHasBingo } = parsed.data;
+
+  const claim: Claim = {
+    id: uid(8),
+    sessionId: s.id,
+    playerId,
+    playerName,
+    layout,
+    marks,
+    declaredAt: Date.now(),
+    clientHasBingo,
+    serverCheck: hasBingoServer(layout, marks) ? 'valid' : 'invalid'
+  };
+
+  if(!CLAIMS[s.id]) CLAIMS[s.id] = [];
+  CLAIMS[s.id].push(claim);
+
+  res.status(201).json({ status: 'received', claim });
 });
+
 
 app.get('/sessions/:id/analytics', (req,res)=>{
   const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
@@ -167,6 +243,11 @@ app.get('/sessions/:id/state', (req, res) => {
     draws: s.draws,      // [{index, termId, text, drawnAt}]
     termsCount: s.terms.length,
   });
+});
+
+app.get('/sessions/:id/claims', (req,res)=>{
+  const list = CLAIMS[req.params.id] || [];
+  res.json({ count: list.length, claims: list });
 });
 
 const port = Number(process.env.PORT || 10000);
