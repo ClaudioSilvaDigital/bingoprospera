@@ -308,7 +308,11 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
           const d = await r2.json();
           setClaims(d.claims || []);
           if (!selected && d.claims?.length) setSelected(d.claims[0]);
-        }
+          if (!selected && d.claims?.length) {
+  const firstValid = d.claims.find((x:any)=> x.serverCheck === "valid");
+  setSelected(firstValid || d.claims[0]);
+}
+
       } catch (e: any) {
         setErr("Falha ao atualizar painel.");
       }
