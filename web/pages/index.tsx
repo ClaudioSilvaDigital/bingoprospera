@@ -65,15 +65,6 @@ function HomeScreen() {
 
   return (
     <div className="min-h-full">
-      <header className="bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 border-b border-gray-100">
-        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center gap-3">
-          <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
-            <span className="text-prospera-primary font-black">P</span>
-          </div>
-          <div className="font-bold">Prospera Bingo</div>
-          <div className="ml-auto text-sm text-gray-500">Sustentável, rápido e divertido</div>
-        </div>
-      </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-2 gap-8">
         <section className="card p-6">
@@ -254,15 +245,6 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="min-h-full">
-      <header className="bg-white/70 backdrop-blur sticky top-0 border-b border-gray-100">
-        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center gap-3">
-          <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
-            <span className="text-prospera-primary font-black">P</span>
-          </div>
-          <div className="font-bold">Conexão Prospera • Bingo</div>
-          <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
-        </div>
-      </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 grid gap-8">
         {!layout.length && (
@@ -318,7 +300,7 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
             <div className="mt-4 flex items-center gap-3">
               <span className="subtle">Sorteados: <b>{drawn.size}</b></span>
               <span className="subtle">• Marcas: <b>{marks.size}</b></span>
-              <button onClick={claim} className="btn ml-auto">Declarar BINGO</button>
+              <button onClick={claim} className="btn ml-auto">Gritar BINGO!</button>
             </div>
           </section>
         )}
@@ -381,15 +363,7 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="min-h-full">
-      <header className="bg-white/70 backdrop-blur sticky top-0 border-b border-gray-100">
-        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center gap-3">
-          <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
-            <span className="text-prospera-primary font-black">P</span>
-          </div>
-          <div className="font-bold">Prospera Bingo • Gestão</div>
-          <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
-        </div>
-      </header>
+
 
       <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-[380px_1fr] gap-6">
         <div className="flex items-center gap-3 flex-wrap mb-1">
