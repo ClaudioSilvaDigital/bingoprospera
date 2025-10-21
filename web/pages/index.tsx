@@ -1,45 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 
-// ===== Config da API =====
 const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
 const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http://localhost:10000";
 
-// ===== Router por HASH =====
 type Route =
   | { name: "home" }
   | { name: "play"; sessionId: string }
   | { name: "admin"; sessionId: string };
 
 function useHashRoute(): Route {
-  const [hash, setHash] = useState<string>(
-    typeof window !== "undefined" ? window.location.hash : ""
-  );
+  const [hash, setHash] = useState<string>(typeof window !== "undefined" ? window.location.hash : "");
   useEffect(() => {
     const onHash = () => setHash(window.location.hash);
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-
-  // #/admin/ABC123
   let m = hash.match(/^#\/admin\/([A-Za-z0-9_-]{4,})$/);
   if (m) return { name: "admin", sessionId: m[1] };
-
-  // #/play/ABC123
   m = hash.match(/^#\/play\/([A-Za-z0-9_-]{4,})$/);
   if (m) return { name: "play", sessionId: m[1] };
-
   return { name: "home" };
 }
 
-// ===== App root =====
-export default function App() {
+export default function Root() {
   const route = useHashRoute();
   if (route.name === "admin") return <AdminScreen sessionId={route.sessionId} />;
   if (route.name === "play") return <PlayScreen sessionId={route.sessionId} />;
   return <HomeScreen />;
 }
 
-// ====== HOME (criar sessão / sortear) ======
+/* =============== HOME =============== */
 function HomeScreen() {
   const [sessionId, setSessionId] = useState<string>("");
   const [rows, setRows] = useState(6);
@@ -50,7 +40,7 @@ function HomeScreen() {
     const res = await fetch(`${API_BASE}/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gridRows: rows, gridCols: cols, winConditions: ["row", "col"] }),
+      body: JSON.stringify({ gridRows: rows, gridCols: cols, winConditions: ["row", "col", "diag"] }),
     });
     const data = await res.json();
     setSessionId(data.id);
@@ -68,65 +58,108 @@ function HomeScreen() {
     typeof window !== "undefined" && sessionId
       ? `${window.location.origin}/#/play/${sessionId}`
       : "";
-
   const fullAdminLink =
     typeof window !== "undefined" && sessionId
       ? `${window.location.origin}/#/admin/${sessionId}`
       : "";
 
   return (
-    <main style={{ maxWidth: 640, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui" }}>
-      <h1>Prospera Bingo • Web</h1>
-      <p>Boilerplate Next.js conectado à API Render.</p>
+    <div className="min-h-full">
+      <header className="bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 border-b border-gray-100">
+        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center gap-3">
+          <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
+            <span className="text-prospera-primary font-black">P</span>
+          </div>
+          <div className="font-bold">Prospera Bingo</div>
+          <div className="ml-auto text-sm text-gray-500">Sustentável, rápido e divertido</div>
+        </div>
+      </header>
 
-      <div style={{ display: "grid", gap: 12 }}>
-        <label>
-          Linhas:{" "}
-          <input type="number" min={3} max={12} value={rows} onChange={(e) => setRows(Number(e.target.value))} />
-        </label>
-        <label>
-          Colunas:{" "}
-          <input type="number" min={3} max={12} value={cols} onChange={(e) => setCols(Number(e.target.value))} />
-        </label>
+      <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-2 gap-8">
+        <section className="card p-6">
+          <h1 className="h1 mb-2">Criar Sessão</h1>
+          <p className="subtle mb-6">Defina o tamanho da cartela e comece o sorteio.</p>
 
-        <button onClick={createSession}>Criar sessão</button>
-        <button onClick={drawNext} disabled={!sessionId}>Sortear próximo</button>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="text-sm">
+              Linhas
+              <input
+                type="number"
+                min={3}
+                max={12}
+                value={rows}
+                onChange={(e) => setRows(Number(e.target.value))}
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-prospera-accent"
+              />
+            </label>
+            <label className="text-sm">
+              Colunas
+              <input
+                type="number"
+                min={3}
+                max={12}
+                value={cols}
+                onChange={(e) => setCols(Number(e.target.value))}
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-prospera-accent"
+              />
+            </label>
+          </div>
 
-        <pre>{log}</pre>
+          <div className="mt-6 flex gap-3">
+            <button onClick={createSession} className="btn">Criar sessão</button>
+            <button onClick={drawNext} disabled={!sessionId} className="btn-secondary disabled:opacity-60">
+              Sortear próximo
+            </button>
+          </div>
 
-        {sessionId && (
-          <>
-            <p>
-              URL para jogadores:&nbsp;
-              <a href={`/#/play/${sessionId}`} style={{ textDecoration: "underline", color: "#0070f3" }}>
+          <pre className="mt-4 text-sm bg-gray-50 rounded-xl p-3 border border-gray-100">{log || "—"}</pre>
+
+          {sessionId && (
+            <div className="mt-6 space-y-2">
+              <div className="text-sm">URL Jogadores:</div>
+              <a className="text-prospera-primary underline break-all" href={`/#/play/${sessionId}`}>
                 {fullPlayerLink}
               </a>
-            </p>
-            <p>
-              URL da gestão:&nbsp;
-              <a href={`/#/admin/${sessionId}`} style={{ textDecoration: "underline", color: "#0070f3" }}>
+              <div className="text-sm mt-2">URL Gestão:</div>
+              <a className="text-prospera-primary underline break-all" href={`/#/admin/${sessionId}`}>
                 {fullAdminLink}
               </a>
-            </p>
-          </>
-        )}
-      </div>
-    </main>
+            </div>
+          )}
+        </section>
+
+        <section className="card p-6">
+          <h2 className="h2 mb-2">Boas práticas</h2>
+          <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
+            <li>Não imprime nada. Tudo via navegador.</li>
+            <li>Compatível com celular (toques grandes, contraste alto).</li>
+            <li>Paleta Prospera para reforçar a identidade.</li>
+            <li>Fácil de operar em eventos: sessão, sorteio, telão e gestão.</li>
+          </ul>
+          <div className="mt-4 rounded-2xl border border-dashed border-prospera-accent/40 p-3 text-sm text-gray-600">
+            Dica: use o link de gestão num telão e o de jogadores via QR code.
+          </div>
+        </section>
+      </main>
+
+      <footer className="py-6 text-center text-xs text-gray-500">
+        © {new Date().getFullYear()} Prospera • Sustentabilidade em primeiro lugar
+      </footer>
+    </div>
   );
 }
 
-// ====== PLAY (cartela do jogador) ======
+/* =============== PLAY =============== */
 function PlayScreen({ sessionId }: { sessionId: string }) {
   const [name, setName] = useState("Jogador");
   const [layout, setLayout] = useState<string[][]>([]);
-  const [drawn, setDrawn] = useState<Set<string>>(new Set());  // termos sorteados
-  const [marks, setMarks] = useState<Set<string>>(new Set());  // "r,c"
+  const [drawn, setDrawn] = useState<Set<string>>(new Set());
+  const [marks, setMarks] = useState<Set<string>>(new Set());
   const [grid, setGrid] = useState<{ rows: number; cols: number }>({ rows: 0, cols: 0 });
   const [error, setError] = useState<string>("");
 
   const keyRC = (r: number, c: number) => `${r},${c}`;
 
-  // Entrar e receber cartela
   async function join() {
     setError("");
     try {
@@ -144,7 +177,6 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
     }
   }
 
-  // Polling do estado (2s)
   useEffect(() => {
     let t: any;
     const tick = async () => {
@@ -162,7 +194,6 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
     return () => { if (t) clearTimeout(t); };
   }, [sessionId]);
 
-  // Marcação (só se termo já foi sorteado)
   function toggleMark(r: number, c: number) {
     if (!layout.length) return;
     const term = layout[r][c];
@@ -184,7 +215,7 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
       if (ok) return true;
     }
     for (let c = 0; c < C; c++) {
-      let ok = true; for (let r = 0; r < R; r++) if (!marks.has(keyRC(r, c))) { ok = false; break; }
+      let ok = true; for (let r = 0; r < R; r++) if (!marks.has(keyRC(r, r === r ? c : c))) { ok = false; break; } // mantém simples
       if (ok) return true;
     }
     { let ok = true; for (let i = 0; i < Math.min(R, C); i++) if (!marks.has(keyRC(i, i))) { ok = false; break; } if (ok) return true; }
@@ -213,7 +244,7 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
       if (!r.ok) throw new Error(data?.error || `Falha: ${r.status}`);
       alert(data?.claim?.serverCheck === "valid"
         ? "Bingo! (validado no servidor)"
-        : "Declaração recebida, mas o servidor não confirmou bingo. O host irá revisar.");
+        : "Declaração recebida, o host irá revisar.");
     } catch (e: any) {
       alert(e.message || "Erro ao declarar bingo");
     }
@@ -222,68 +253,81 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
   const cols = layout[0]?.length || 0;
 
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui" }}>
-      <h1>Entrar na sessão {sessionId}</h1>
-      <div style={{ display: "grid", gap: 12 }}>
-        {!layout.length && (
-          <>
-            <label>Seu nome: <input value={name} onChange={(e) => setName(e.target.value)} /></label>
-            <button onClick={join}>Entrar</button>
-            {error && <div style={{ color: "crimson" }}>{error}</div>}
-          </>
-        )}
-
-        {layout.length > 0 && (
-          <div style={{ fontSize: 12, color: "#555" }}>
-            <b>Dica:</b> células só podem ser marcadas depois que o termo for sorteado.
+    <div className="min-h-full">
+      <header className="bg-white/70 backdrop-blur sticky top-0 border-b border-gray-100">
+        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center gap-3">
+          <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
+            <span className="text-prospera-primary font-black">P</span>
           </div>
+          <div className="font-bold">Prospera Bingo • Jogador</div>
+          <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-8 grid gap-8">
+        {!layout.length && (
+          <section className="card p-6">
+            <h1 className="h1 mb-2">Entrar na sessão {sessionId}</h1>
+            <p className="subtle mb-6">Digite seu nome e gere sua cartela.</p>
+            <label className="text-sm block">
+              Seu nome
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-prospera-accent"
+              />
+            </label>
+            <div className="mt-4 flex gap-3">
+              <button onClick={join} className="btn">Entrar</button>
+              {error && <div className="text-red-600 text-sm">{error}</div>}
+            </div>
+            <p className="subtle mt-4">Dica: células só podem ser marcadas quando o termo for sorteado.</p>
+          </section>
         )}
 
         {cols > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
-            {layout.map((row, r) =>
-              row.map((t, c) => {
-                const k = `${r},${c}`;
-                const isDrawn = drawn.has(t);
-                const isMarked = marks.has(k);
-                return (
-                  <button
-                    key={k}
-                    onClick={() => toggleMark(r, c)}
-                    disabled={!isDrawn}
-                    style={{
-                      border: "1px solid #999",
-                      padding: 8,
-                      textAlign: "center",
-                      cursor: isDrawn ? "pointer" : "not-allowed",
-                      background: isMarked ? "#b2f2bb" : isDrawn ? "#e7f5ff" : "#f1f3f5",
-                      fontWeight: isMarked ? 700 : 500,
-                    }}
-                    title={!isDrawn ? "Aguarde o sorteio deste termo" : "Marcar/Desmarcar"}
-                  >
-                    {t}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        )}
+          <section className="card p-4 md:p-6">
+            <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
+              {layout.map((row, r) =>
+                row.map((t, c) => {
+                  const k = `${r},${c}`;
+                  const isDrawn = drawn.has(t);
+                  const isMarked = marks.has(k);
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => toggleMark(r, c)}
+                      disabled={!isDrawn}
+                      className={[
+                        "px-3 py-3 rounded-xl border text-sm font-semibold transition",
+                        isMarked
+                          ? "bg-emerald-100 border-emerald-300"
+                          : isDrawn
+                            ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
+                            : "bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed"
+                      ].join(" ")}
+                      title={!isDrawn ? "Aguarde o sorteio deste termo" : "Marcar/Desmarcar"}
+                    >
+                      {t}
+                    </button>
+                  );
+                })
+              )}
+            </div>
 
-        {layout.length > 0 && (
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <span>Termos sorteados: {drawn.size}</span>
-            <span> | Marcas: {marks.size}</span>
-            <button onClick={claim} style={{ marginLeft: "auto" }}>Declarar BINGO</button>
-          </div>
+            <div className="mt-4 flex items-center gap-3">
+              <span className="subtle">Sorteados: <b>{drawn.size}</b></span>
+              <span className="subtle">• Marcas: <b>{marks.size}</b></span>
+              <button onClick={claim} className="btn ml-auto">Declarar BINGO</button>
+            </div>
+          </section>
         )}
-
-        <p><a href="/" style={{ textDecoration: "underline" }}>← Voltar para a Home</a></p>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 
-// ====== ADMIN (lista e visualiza declarações) ======
+/* =============== ADMIN =============== */
 function AdminScreen({ sessionId }: { sessionId: string }) {
   const [claims, setClaims] = useState<any[]>([]);
   const [selected, setSelected] = useState<any | null>(null);
@@ -291,7 +335,6 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string>("");
 
-  // polling de estado + claims a cada 3s
   useEffect(() => {
     let t: any;
     const tick = async () => {
@@ -307,12 +350,11 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
         if (r2.ok) {
           const d = await r2.json();
           setClaims(d.claims || []);
-          if (!selected && d.claims?.length) setSelected(d.claims[0]);
           if (!selected && d.claims?.length) {
-  const firstValid = d.claims.find((x:any)=> x.serverCheck === "valid");
-  setSelected(firstValid || d.claims[0]);
-}
-
+            const firstValid = d.claims.find((x: any) => x.serverCheck === "valid");
+            setSelected(firstValid || d.claims[0]);
+          }
+        }
       } catch (e: any) {
         setErr("Falha ao atualizar painel.");
       }
@@ -338,86 +380,72 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
   const validCount = claims.filter(c => c.serverCheck === "valid").length;
 
   return (
-    <main style={{ maxWidth: 1200, margin: "30px auto", padding: "0 16px", fontFamily: "system-ui" }}>
-      <h1>Painel de Gestão • Sessão {sessionId}</h1>
-      <div style={{display:"flex", gap:16, alignItems:"center", flexWrap:"wrap", marginBottom:12}}>
-        <a href="/" style={{ textDecoration: "underline" }}>← Home</a>
-        <span style={{ padding:"6px 10px", border:"1px solid #ddd", borderRadius:8 }}>
-          Sorteios: <b>{totalDraws}</b>
-        </span>
-        <span style={{ padding:"6px 10px", border:"1px solid #ddd", borderRadius:8 }}>
-          Declarações: <b>{claims.length}</b> (válidas: <b>{validCount}</b>)
-        </span>
-        <button onClick={drawNext} disabled={busy} style={{ marginLeft:"auto" }}>
-          {busy ? "Sorteando..." : "Sortear próximo"}
-        </button>
-      </div>
-      {err && <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div>}
+    <div className="min-h-full">
+      <header className="bg-white/70 backdrop-blur sticky top-0 border-b border-gray-100">
+        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center gap-3">
+          <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
+            <span className="text-prospera-primary font-black">P</span>
+          </div>
+          <div className="font-bold">Prospera Bingo • Gestão</div>
+          <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
+        </div>
+      </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: 16 }}>
-        {/* Coluna esquerda: declarações */}
-        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, background:"#fff" }}>
-          <h3 style={{marginTop:0}}>Declarações ({claims.length})</h3>
-          <div style={{ display: "grid", gap: 8, maxHeight: 520, overflowY: "auto" }}>
+      <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-[380px_1fr] gap-6">
+        <div className="flex items-center gap-3 flex-wrap mb-1">
+          <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">Sorteios: <b>{totalDraws}</b></span>
+          <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">Declarações: <b>{claims.length}</b> (válidas: <b>{validCount}</b>)</span>
+          <button onClick={drawNext} disabled={busy} className="btn ml-auto">
+            {busy ? "Sorteando..." : "Sortear próximo"}
+          </button>
+        </div>
+        {err && <div className="text-red-600 mb-2">{err}</div>}
+
+        <section className="card p-4 md:p-5 overflow-hidden">
+          <h3 className="h2 mb-3">Declarações</h3>
+          <div className="grid gap-3 max-h-[520px] overflow-y-auto pr-1">
             {claims.map((c:any)=>(
               <button key={c.id}
                 onClick={()=>setSelected(c)}
-                style={{
-                  textAlign:"left", padding:10, border:"1px solid #ccc", borderRadius:8,
-                  background: selected?.id===c.id ? "#e7f5ff" : "#fafafa"
-                }}>
-                <div style={{display:"flex", justifyContent:"space-between"}}>
-                  <span style={{fontWeight:700}}>{c.playerName}</span>
-                  <span style={{
-                    fontSize:12,
-                    padding:"2px 6px",
-                    borderRadius:6,
-                    background: c.serverCheck==="valid" ? "#d3f9d8" : c.serverCheck==="invalid" ? "#ffe3e3" : "#eee"
-                  }}>
-                    {c.serverCheck}
-                  </span>
+                className={[
+                  "text-left p-3 rounded-xl border transition",
+                  selected?.id===c.id ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200 hover:bg-gray-50"
+                ].join(" ")}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold">{c.playerName}</span>
+                  <span className={[
+                    "text-xs px-2 py-1 rounded-md",
+                    c.serverCheck==="valid" ? "bg-emerald-100 text-emerald-800" :
+                    c.serverCheck==="invalid" ? "bg-red-100 text-red-800" :
+                    "bg-gray-100 text-gray-700"
+                  ].join(" ")}>{c.serverCheck}</span>
                 </div>
-                <div style={{fontSize:12, color:"#555"}}>
-                  {new Date(c.declaredAt).toLocaleTimeString()}
-                </div>
+                <div className="text-xs text-gray-600">{new Date(c.declaredAt).toLocaleTimeString()}</div>
               </button>
             ))}
-            {!claims.length && <div style={{color:"#777"}}>Nenhuma declaração ainda.</div>}
+            {!claims.length && <div className="text-gray-600 text-sm">Nenhuma declaração ainda.</div>}
           </div>
-        </div>
+        </section>
 
-        {/* Coluna direita: preview da cartela + últimos sorteios */}
-        <div style={{ display:"grid", gridTemplateRows:"auto auto", gap:16 }}>
-          <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, background:"#fff" }}>
-            <h3 style={{marginTop:0}}>Cartela declarada</h3>
-            {!selected && <div style={{color:"#777"}}>Selecione uma declaração ao lado.</div>}
-            {selected && (
-              <>
-                <div style={{marginBottom:8, color:"#555"}}>
-                  Jogador: <b>{selected.playerName}</b> • Servidor: <b>{selected.serverCheck}</b>
-                </div>
-                <ClaimBoard claim={selected} />
-              </>
-            )}
-          </div>
-
-          <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, background:"#fff" }}>
-            <h3 style={{marginTop:0}}>Últimos sorteios</h3>
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <section className="card p-4 md:p-5">
+          <h3 className="h2 mb-3">Cartela</h3>
+          {!selected && <div className="text-gray-600">Selecione uma declaração ao lado.</div>}
+          {selected && <ClaimBoard claim={selected} />}
+          <div className="mt-4">
+            <h4 className="font-semibold mb-2 text-gray-800">Últimos sorteios</h4>
+            <div className="flex flex-wrap gap-2">
               {(state?.draws || []).slice(-24).reverse().map((d:any)=>(
-                <span key={d.index} style={{ border:"1px solid #ccc", borderRadius:6, padding:"4px 8px", background:"#f8f9fa" }}>
-                  {d.text}
-                </span>
+                <span key={d.index} className="px-3 py-1 rounded-xl border border-gray-200 bg-white text-sm">{d.text}</span>
               ))}
-              {!state?.draws?.length && <span style={{color:"#777"}}>Ainda não há sorteios.</span>}
+              {!state?.draws?.length && <span className="text-gray-600 text-sm">Ainda não há sorteios.</span>}
             </div>
           </div>
-        </div>
-      </div>
-    </main>
+        </section>
+      </main>
+    </div>
   );
 }
-
 
 function ClaimBoard({ claim }: { claim: any }) {
   const layout: string[][] = claim.layout;
@@ -425,7 +453,7 @@ function ClaimBoard({ claim }: { claim: any }) {
   const set = useMemo(() => new Set(marks.map(([r, c]) => `${r},${c}`)), [marks]);
   const cols = layout[0]?.length || 0;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
+    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
       {layout.map((row: string[], r: number) =>
         row.map((t: string, c: number) => {
           const k = `${r},${c}`;
@@ -433,13 +461,10 @@ function ClaimBoard({ claim }: { claim: any }) {
           return (
             <div
               key={k}
-              style={{
-                border: "1px solid #999",
-                padding: 8,
-                textAlign: "center",
-                background: marked ? "#b2f2bb" : "#f8f9fa",
-                fontWeight: marked ? 700 : 500,
-              }}
+              className={[
+                "px-3 py-3 rounded-xl border text-sm font-semibold",
+                marked ? "bg-emerald-100 border-emerald-300" : "bg-gray-50 border-gray-200"
+              ].join(" ")}
             >
               {t}
             </div>
