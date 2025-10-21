@@ -402,7 +402,7 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
           </div>
         </section>
 
-        <section className="card p-4 md:p-5">
+        <section className="card p-4 md:p-5 md:col-span-2">
           <h3 className="h2 mb-3">Cartela</h3>
           {!selected && <div className="text-gray-600">Selecione uma declaração ao lado.</div>}
           {selected && <ClaimBoard claim={selected} />}
