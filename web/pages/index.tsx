@@ -5,9 +5,24 @@ const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
 const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http://localhost:10000";
 
 // Router por hash: "#/play/ID" ou home ("")
+
 type Route =
   | { name: "home" }
-  | { name: "play"; sessionId: string };
+  | { name: "play"; sessionId: string }
+  | { name: "admin"; sessionId: string };
+
+function useHashRoute(): Route {
+  const [hash, setHash] = useState<string>(typeof window !== "undefined" ? window.location.hash : "");
+  useEffect(() => { const onHash = () => setHash(window.location.hash); window.addEventListener("hashchange", onHash); return () => window.removeEventListener("hashchange", onHash); }, []);
+  // #/admin/ABC123
+  let m = hash.match(/^#\/admin\/([A-Za-z0-9_-]{4,})$/);
+  if (m) return { name: "admin", sessionId: m[1] };
+  // #/play/ABC123
+  m = hash.match(/^#\/play\/([A-Za-z0-9_-]{4,})$/);
+  if (m) return { name: "play", sessionId: m[1] };
+  return { name: "home" };
+}
+
 
 function useHashRoute(): Route {
   const [hash, setHash] = useState<string>(typeof window !== "undefined" ? window.location.hash : "");
@@ -27,12 +42,11 @@ function useHashRoute(): Route {
 
 export default function App() {
   const route = useHashRoute();
-
-  if (route.name === "play") {
-    return <PlayScreen sessionId={route.sessionId} />;
-  }
+  if (route.name === "admin") return <AdminScreen sessionId={route.sessionId} />;
+  if (route.name === "play")  return <PlayScreen  sessionId={route.sessionId} />;
   return <HomeScreen />;
 }
+
 
 function HomeScreen() {
   const [sessionId, setSessionId] = useState<string>("");
@@ -157,6 +171,95 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
       return n;
     });
   }
+function AdminScreen({ sessionId }: { sessionId: string }) {
+  const [claims, setClaims] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any | null>(null);
+
+  // polling a cada 2s
+  useEffect(() => {
+    let t:any;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/sessions/${sessionId}/claims`);
+        if (r.ok) {
+          const data = await r.json();
+          setClaims(data.claims || []);
+          if (!selected && data.claims?.length) setSelected(data.claims[0]);
+        }
+      } catch {}
+      t = setTimeout(tick, 2000);
+    };
+    tick();
+    return () => { if (t) clearTimeout(t); };
+  }, [sessionId]);
+
+  return (
+    <main style={{ maxWidth: 1100, margin: "30px auto", padding: "0 16px", fontFamily: "system-ui" }}>
+      <h1>Gestão • Sessão {sessionId}</h1>
+      <p><a href="/" style={{ textDecoration: "underline" }}>← Home</a></p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 16 }}>
+        {/* Lista de declarações */}
+        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
+          <h3>Declarações ({claims.length})</h3>
+          <div style={{ display: "grid", gap: 8 }}>
+            {claims.map((c:any)=>(
+              <button key={c.id}
+                onClick={()=>setSelected(c)}
+                style={{
+                  textAlign:"left", padding:8, border:"1px solid #ccc", borderRadius:6,
+                  background: selected?.id===c.id ? "#e7f5ff" : "#fff"
+                }}>
+                <div style={{fontWeight:700}}>{c.playerName}</div>
+                <div style={{fontSize:12, color:"#555"}}>
+                  {new Date(c.declaredAt).toLocaleTimeString()} • Server: {c.serverCheck}
+                </div>
+              </button>
+            ))}
+            {!claims.length && <div style={{color:"#777"}}>Nenhuma declaração ainda.</div>}
+          </div>
+        </div>
+
+        {/* Preview da cartela marcada */}
+        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
+          <h3>Cartela</h3>
+          {!selected && <div>Selecione uma declaração ao lado.</div>}
+          {selected && (
+            <>
+              <div style={{marginBottom:8, color:"#555"}}>
+                Jogador: <b>{selected.playerName}</b> • Validação servidor: <b>{selected.serverCheck}</b>
+              </div>
+              <ClaimBoard claim={selected} />
+            </>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function ClaimBoard({ claim }: { claim:any }) {
+  const layout: string[][] = claim.layout;
+  const marks: Array<[number,number]> = claim.marks || [];
+  const set = new Set(marks.map(([r,c]:[number,number])=>`${r},${c}`));
+  const cols = layout[0]?.length || 0;
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:`repeat(${cols}, 1fr)`, gap:6 }}>
+      {layout.map((row:string[], r:number)=>
+        row.map((t:string, c:number)=>{
+          const k = `${r},${c}`;
+          const marked = set.has(k);
+          return (
+            <div key={k} style={{
+              border:"1px solid #999", padding:8, textAlign:"center",
+              background: marked ? "#b2f2bb" : "#f8f9fa", fontWeight: marked?700:500
+            }}>{t}</div>
+          );
+        })
+      )}
+    </div>
+  );
+}
 
   // 4) Checagem de bingo local (linhas/colunas/diagonais)
   function hasBingo(): boolean {
@@ -193,14 +296,34 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
 
   // 5) Declarar bingo (usa endpoint mock; o admin confere no telão)
   async function claim() {
+    // monta array de marcas [[r,c], ...]
+    const marksArr: Array<[number,number]> = Array.from(marks).map(k => {
+      const [r,c] = k.split(',').map(Number);
+      return [r,c] as [number,number];
+    });
+
     try {
-      const r = await fetch(`${API_BASE}/sessions/${sessionId}/claim`, { method: "POST" });
-      if (!r.ok) throw new Error(await r.text());
-      alert(hasBingo() ? "Bingo! (validado no cliente)" : "Você declarou bingo, mas sua cartela não fecha no cliente.");
+      const r = await fetch(`${API_BASE}/sessions/${sessionId}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: name.replace(/\s+/g,'-').toUpperCase().slice(0,8) || "PLAYER",
+          playerName: name,
+          layout,
+          marks: marksArr,
+          clientHasBingo: hasBingo()
+        })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || `Falha: ${r.status}`);
+      alert(data?.claim?.serverCheck === 'valid'
+        ? "Bingo! (validado no servidor)"
+        : "Declaração recebida, mas o servidor não confirmou bingo. O host irá revisar.");
     } catch (e:any) {
       alert(e.message || "Erro ao declarar bingo");
     }
   }
+
 
   const cols = layout[0]?.length || 0;
 
