@@ -55,17 +55,20 @@ const SESS: Record<string, Session> = {};
 // pool simples (você pode trocar pelo seu dicionário)
 const WORDS = [
   'Pertencimento','Orgulho','Colaboração','Metas','Soul Up','Comunicação',
-  'Reconhecimento','Time','Transparência','Respeito','Ajudei','Sprint',
+  'Reconhecimento','Time','Transparência','Respeito','Ajudar','Sprint',
   'Solução','Aprendizado','Feedback','Proatividade','Compartilhar',
   'Superamos','Celebramos','Decisão','Fantasma','Bruxa','Vassoura',
-  'Doces','Caveira','Múmia','Feitiço','Motivação','Energia','Empolgação',
+  'Doces','Caveira','Energia Verde','Feitiço','Motivação','Energia','Empolgação',
   'Alegria','Confiança','Compromisso','Cuidado','Crescer','Segurança',
   'Equipe','Governança','Equidade','Conexão','Conteúdo','Gamificação',
   'Vale Energia','Roadmap','Web 3','Crescimento','Feriado','Pipeline',
   'Compliance','Sucesso','Pausa','Objetivo','Orçamento','Prosperar',
-  'Conhecimento','celebração','Planejamento','Sprint entregue','OKR',
-  'Transparência','Honestidade','Foco','Alinhamento','Prioridade'
-];
+  'Conhecimento','Celebração','Planejamento','Sprint','OKR',
+  'Transparência','Honestidade','Foco','Alinhamento','Prioridade',
+  'Inovação','Sustentável','Propósito','Inspiração','Criatividade',
+  'Resultado','Evolução','Pontos Ecoa','Valorização','Eficiência','Transformação'
+]
+;
 
 // util para gerar cartela (embaralha e preenche RxC)
 function makeBoard(rows:number, cols:number, terms:string[]): string[][] {
