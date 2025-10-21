@@ -101,8 +101,15 @@ function HomeScreen() {
 function PlayScreen({ sessionId }: { sessionId: string }) {
   const [name, setName] = useState("Jogador");
   const [layout, setLayout] = useState<string[][]>([]);
+  const [drawn, setDrawn] = useState<Set<string>>(new Set());  // termos sorteados
+  const [marks, setMarks] = useState<Set<string>>(new Set());  // "r,c"
+  const [grid, setGrid] = useState<{rows:number; cols:number}>({rows:0, cols:0});
   const [error, setError] = useState<string>("");
 
+  // util
+  const keyRC = (r:number,c:number)=>`${r},${c}`;
+
+  // 1) Entrar e receber cartela
   async function join() {
     setError("");
     try {
@@ -111,14 +118,87 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName: name }),
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || `Join falhou: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setLayout(data.layout);
+      setGrid({rows: data.gridRows, cols: data.gridCols});
     } catch (e: any) {
       setError(e.message || "Erro ao entrar");
+    }
+  }
+
+  // 2) Polling do estado da sessão (a cada 2s)
+  useEffect(() => {
+    let t: any;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/sessions/${sessionId}/state`);
+        if (r.ok) {
+          const data = await r.json();
+          const set = new Set<string>(data.draws.map((d: any) => d.text));
+          setDrawn(set);
+        }
+      } catch {}
+      t = setTimeout(tick, 2000);
+    };
+    tick();
+    return () => { if (t) clearTimeout(t); };
+  }, [sessionId]);
+
+  // 3) Clique para marcar — só permite marcar se termo já foi sorteado
+  function toggleMark(r:number, c:number) {
+    if (!layout.length) return;
+    const term = layout[r][c];
+    if (!drawn.has(term)) return; // bloqueia marcação de termo não sorteado
+    const k = keyRC(r,c);
+    setMarks(prev => {
+      const n = new Set(prev);
+      if (n.has(k)) n.delete(k); else n.add(k);
+      return n;
+    });
+  }
+
+  // 4) Checagem de bingo local (linhas/colunas/diagonais)
+  function hasBingo(): boolean {
+    const R = grid.rows || layout.length;
+    const C = grid.cols || (layout[0]?.length || 0);
+    if (R===0 || C===0) return false;
+
+    // linhas
+    for (let r=0; r<R; r++) {
+      let ok = true;
+      for (let c=0; c<C; c++) if (!marks.has(keyRC(r,c))) { ok=false; break; }
+      if (ok) return true;
+    }
+    // colunas
+    for (let c=0; c<C; c++) {
+      let ok = true;
+      for (let r=0; r<R; r++) if (!marks.has(keyRC(r,c))) { ok=false; break; }
+      if (ok) return true;
+    }
+    // diagonal principal
+    {
+      let ok = true;
+      for (let i=0;i<Math.min(R,C);i++) if (!marks.has(keyRC(i,i))) { ok=false; break; }
+      if (ok) return true;
+    }
+    // diagonal secundária
+    {
+      let ok = true;
+      for (let i=0;i<Math.min(R,C);i++) if (!marks.has(keyRC(i,C-1-i))) { ok=false; break; }
+      if (ok) return true;
+    }
+    return false;
+  }
+
+  // 5) Declarar bingo (usa endpoint mock; o admin confere no telão)
+  async function claim() {
+    try {
+      const r = await fetch(`${API_BASE}/sessions/${sessionId}/claim`, { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+      alert(hasBingo() ? "Bingo! (validado no cliente)" : "Você declarou bingo, mas sua cartela não fecha no cliente.");
+    } catch (e:any) {
+      alert(e.message || "Erro ao declarar bingo");
     }
   }
 
@@ -128,26 +208,66 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
     <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui" }}>
       <h1>Entrar na sessão {sessionId}</h1>
       <div style={{ display: "grid", gap: 12 }}>
-        <label>
-          Seu nome: <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <button onClick={join}>Entrar</button>
-        {error && <div style={{ color: "crimson" }}>{error}</div>}
-        {cols > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
-            {layout.flat().map((t, i) => (
-              <div key={i} style={{ border: "1px solid #999", padding: 8, textAlign: "center" }}>
-                {t}
-              </div>
-            ))}
+        {!layout.length && (
+          <>
+            <label>
+              Seu nome: <input value={name} onChange={(e) => setName(e.target.value)} />
+            </label>
+            <button onClick={join}>Entrar</button>
+            {error && <div style={{ color: "crimson" }}>{error}</div>}
+          </>
+        )}
+
+        {/* Legenda */}
+        {layout.length > 0 && (
+          <div style={{fontSize:12, color:"#555"}}>
+            <b>Dica:</b> células só podem ser marcadas depois que o termo for sorteado.
           </div>
         )}
-        <p>
-          <a href="/" style={{ textDecoration: "underline" }}>
-            ← Voltar para a Home
-          </a>
-        </p>
+
+        {/* Cartela */}
+        {cols > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
+            {layout.map((row, r) =>
+              row.map((t, c) => {
+                const k = keyRC(r,c);
+                const isDrawn = drawn.has(t);
+                const isMarked = marks.has(k);
+                return (
+                  <button
+                    key={k}
+                    onClick={() => toggleMark(r,c)}
+                    disabled={!isDrawn}
+                    style={{
+                      border: "1px solid #999",
+                      padding: 8,
+                      textAlign: "center",
+                      cursor: isDrawn ? "pointer" : "not-allowed",
+                      background: isMarked ? "#b2f2bb" : isDrawn ? "#e7f5ff" : "#f1f3f5",
+                      fontWeight: isMarked ? 700 : 500
+                    }}
+                    title={!isDrawn ? "Aguarde o sorteio deste termo" : "Marcar/Desmarcar"}
+                  >
+                    {t}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Status + Ações */}
+        {layout.length > 0 && (
+          <div style={{display:"flex", gap:12, alignItems:"center"}}>
+            <span>Termos sorteados: {drawn.size}</span>
+            <span> | Marcas: {marks.size}</span>
+            <button onClick={claim} style={{marginLeft:"auto"}}>Declarar BINGO</button>
+          </div>
+        )}
+
+        <p><a href="/" style={{ textDecoration: "underline" }}>← Voltar para a Home</a></p>
       </div>
     </main>
   );
 }
+
