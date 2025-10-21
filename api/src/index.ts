@@ -9,6 +9,9 @@ import { z } from 'zod';
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.get('/', (_req, res) => {
+  res.send('Prospera Bingo API: OK');
+});
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' } });
