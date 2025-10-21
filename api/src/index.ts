@@ -3,7 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import { z } from 'zod';
 import crypto from 'crypto';
-import { prisma } from './db';
+import { prisma } from './db.js';
+
 
 const app = express();
 app.use(cors());
