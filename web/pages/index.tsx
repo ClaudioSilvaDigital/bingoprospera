@@ -6,26 +6,16 @@ const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http
 
 // Router por hash: "#/play/ID" ou home ("")
 
+// Router por hash: "", "#/play/ID" ou "#/admin/ID"
 type Route =
   | { name: "home" }
   | { name: "play"; sessionId: string }
   | { name: "admin"; sessionId: string };
 
 function useHashRoute(): Route {
-  const [hash, setHash] = useState<string>(typeof window !== "undefined" ? window.location.hash : "");
-  useEffect(() => { const onHash = () => setHash(window.location.hash); window.addEventListener("hashchange", onHash); return () => window.removeEventListener("hashchange", onHash); }, []);
-  // #/admin/ABC123
-  let m = hash.match(/^#\/admin\/([A-Za-z0-9_-]{4,})$/);
-  if (m) return { name: "admin", sessionId: m[1] };
-  // #/play/ABC123
-  m = hash.match(/^#\/play\/([A-Za-z0-9_-]{4,})$/);
-  if (m) return { name: "play", sessionId: m[1] };
-  return { name: "home" };
-}
-
-
-function useHashRoute(): Route {
-  const [hash, setHash] = useState<string>(typeof window !== "undefined" ? window.location.hash : "");
+  const [hash, setHash] = useState<string>(
+    typeof window !== "undefined" ? window.location.hash : ""
+  );
 
   useEffect(() => {
     const onHash = () => setHash(window.location.hash);
@@ -33,11 +23,15 @@ function useHashRoute(): Route {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  return useMemo(() => {
-    const m = hash.match(/^#\/play\/([A-Za-z0-9_-]{4,})$/);
-    if (m) return { name: "play", sessionId: m[1] };
-    return { name: "home" };
-  }, [hash]);
+  // #/admin/ABC123
+  let m = hash.match(/^#\/admin\/([A-Za-z0-9_-]{4,})$/);
+  if (m) return { name: "admin", sessionId: m[1] };
+
+  // #/play/ABC123
+  m = hash.match(/^#\/play\/([A-Za-z0-9_-]{4,})$/);
+  if (m) return { name: "play", sessionId: m[1] };
+
+  return { name: "home" };
 }
 
 export default function App() {
