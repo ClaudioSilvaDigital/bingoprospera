@@ -7,7 +7,7 @@ export default function App({ Component, pageProps }: AppProps) {
     <>
 
       <header className="flex flex-col items-center justify-center py-6 bg-white shadow-sm">
-  <a href="#" className="flex flex-col items-center gap-2">
+  <a className="flex flex-col items-center gap-2">
     <Image
       src="/logo-prospera.png"
       alt="Prospera"
