@@ -5,21 +5,22 @@ import "../styles/globals.css";
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <>
-      <header className="flex items-center justify-center gap-3 py-4 bg-white shadow-sm">
-        <a href="/" className="flex items-center gap-3">
-          <Image
-            src="/logo-prospera.png"   // coloque o arquivo em web/public/logo-prospera.svg
-            alt="Prospera"
-            width={300}
-            height={92}
-            priority
-          />
-          <br>
-          <span className="text-lg font-semibold text-gray-700 tracking-wide">
-            Conexão Prospera - Bingo
-          </span>
-        </a>
-      </header>
+
+      <header className="flex flex-col items-center justify-center py-6 bg-white shadow-sm">
+  <a href="/" className="flex flex-col items-center gap-2">
+    <Image
+      src="/logo-prospera.png"
+      alt="Prospera"
+      width={300}
+      height={92}
+      priority
+    />
+    <span className="text-lg font-semibold text-gray-700 tracking-wide text-center">
+      Conexão Prospera – Bingo
+    </span>
+  </a>
+</header>
+
 
       <main className="min-h-screen bg-prospera-mist">
         <Component {...pageProps} />
