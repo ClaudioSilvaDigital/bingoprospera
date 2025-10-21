@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base reset/brand */
+:root {
+  color-scheme: light;
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  @apply bg-prospera-mist text-gray-900;
+  font-feature-settings: "ss01" 1;
+}
+
+/* Botões padrões */
+.btn {
+  @apply inline-flex items-center justify-center rounded-2xl px-4 py-2 font-semibold shadow-soft transition
+         bg-prospera-primary text-white hover:bg-emerald-800 active:scale-[0.98];
+}
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-2xl px-4 py-2 font-semibold shadow-soft transition
+         bg-white text-gray-800 border border-gray-200 hover:bg-gray-50 active:scale-[0.98];
+}
+
+/* Cartões */
+.card {
+  @apply bg-white rounded-2xl shadow-soft border border-gray-100;
+}
+
+/* Títulos */
+.h1 {
+  @apply text-2xl md:text-3xl font-bold tracking-tight text-gray-900;
+}
+.h2 {
+  @apply text-xl md:text-2xl font-semibold text-gray-900;
+}
+.subtle {
+  @apply text-sm text-gray-600;
+}
