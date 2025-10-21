@@ -15,7 +15,7 @@ export default function App({ Component, pageProps }: AppProps) {
             priority
           />
           <span className="text-lg font-semibold text-gray-700 tracking-wide">
-            Prospera Bingo
+            <br>Conexão Prospera - Bingo</br>
           </span>
         </a>
       </header>
