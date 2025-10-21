@@ -287,71 +287,133 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
 function AdminScreen({ sessionId }: { sessionId: string }) {
   const [claims, setClaims] = useState<any[]>([]);
   const [selected, setSelected] = useState<any | null>(null);
+  const [state, setState] = useState<{ draws: any[]; rows: number; cols: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string>("");
 
+  // polling de estado + claims a cada 3s
   useEffect(() => {
     let t: any;
     const tick = async () => {
       try {
-        const r = await fetch(`${API_BASE}/sessions/${sessionId}/claims`);
-        if (r.ok) {
-          const data = await r.json();
-          setClaims(data.claims || []);
-          if (!selected && data.claims?.length) setSelected(data.claims[0]);
+        const [r1, r2] = await Promise.all([
+          fetch(`${API_BASE}/sessions/${sessionId}/state`),
+          fetch(`${API_BASE}/sessions/${sessionId}/claims`),
+        ]);
+        if (r1.ok) {
+          const s = await r1.json();
+          setState({ draws: s.draws || [], rows: s.rows, cols: s.cols });
         }
-      } catch {}
-      t = setTimeout(tick, 2000);
+        if (r2.ok) {
+          const d = await r2.json();
+          setClaims(d.claims || []);
+          if (!selected && d.claims?.length) setSelected(d.claims[0]);
+        }
+      } catch (e: any) {
+        setErr("Falha ao atualizar painel.");
+      }
+      t = setTimeout(tick, 3000);
     };
     tick();
     return () => { if (t) clearTimeout(t); };
   }, [sessionId]);
 
-  return (
-    <main style={{ maxWidth: 1100, margin: "30px auto", padding: "0 16px", fontFamily: "system-ui" }}>
-      <h1>Gestão • Sessão {sessionId}</h1>
-      <p><a href="/" style={{ textDecoration: "underline" }}>← Home</a></p>
+  async function drawNext() {
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch(`${API_BASE}/sessions/${sessionId}/draw/next`, { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+    } catch (e:any) {
+      setErr(e.message || "Erro ao sortear");
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 16 }}>
-        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
-          <h3>Declarações ({claims.length})</h3>
-          <div style={{ display: "grid", gap: 8 }}>
-            {claims.map((c: any) => (
-              <button
-                key={c.id}
-                onClick={() => setSelected(c)}
+  const totalDraws = state?.draws?.length || 0;
+  const validCount = claims.filter(c => c.serverCheck === "valid").length;
+
+  return (
+    <main style={{ maxWidth: 1200, margin: "30px auto", padding: "0 16px", fontFamily: "system-ui" }}>
+      <h1>Painel de Gestão • Sessão {sessionId}</h1>
+      <div style={{display:"flex", gap:16, alignItems:"center", flexWrap:"wrap", marginBottom:12}}>
+        <a href="/" style={{ textDecoration: "underline" }}>← Home</a>
+        <span style={{ padding:"6px 10px", border:"1px solid #ddd", borderRadius:8 }}>
+          Sorteios: <b>{totalDraws}</b>
+        </span>
+        <span style={{ padding:"6px 10px", border:"1px solid #ddd", borderRadius:8 }}>
+          Declarações: <b>{claims.length}</b> (válidas: <b>{validCount}</b>)
+        </span>
+        <button onClick={drawNext} disabled={busy} style={{ marginLeft:"auto" }}>
+          {busy ? "Sorteando..." : "Sortear próximo"}
+        </button>
+      </div>
+      {err && <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: 16 }}>
+        {/* Coluna esquerda: declarações */}
+        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, background:"#fff" }}>
+          <h3 style={{marginTop:0}}>Declarações ({claims.length})</h3>
+          <div style={{ display: "grid", gap: 8, maxHeight: 520, overflowY: "auto" }}>
+            {claims.map((c:any)=>(
+              <button key={c.id}
+                onClick={()=>setSelected(c)}
                 style={{
-                  textAlign: "left",
-                  padding: 8,
-                  border: "1px solid #ccc",
-                  borderRadius: 6,
-                  background: selected?.id === c.id ? "#e7f5ff" : "#fff",
-                }}
-              >
-                <div style={{ fontWeight: 700 }}>{c.playerName}</div>
-                <div style={{ fontSize: 12, color: "#555" }}>
-                  {new Date(c.declaredAt).toLocaleTimeString()} • Server: {c.serverCheck}
+                  textAlign:"left", padding:10, border:"1px solid #ccc", borderRadius:8,
+                  background: selected?.id===c.id ? "#e7f5ff" : "#fafafa"
+                }}>
+                <div style={{display:"flex", justifyContent:"space-between"}}>
+                  <span style={{fontWeight:700}}>{c.playerName}</span>
+                  <span style={{
+                    fontSize:12,
+                    padding:"2px 6px",
+                    borderRadius:6,
+                    background: c.serverCheck==="valid" ? "#d3f9d8" : c.serverCheck==="invalid" ? "#ffe3e3" : "#eee"
+                  }}>
+                    {c.serverCheck}
+                  </span>
+                </div>
+                <div style={{fontSize:12, color:"#555"}}>
+                  {new Date(c.declaredAt).toLocaleTimeString()}
                 </div>
               </button>
             ))}
-            {!claims.length && <div style={{ color: "#777" }}>Nenhuma declaração ainda.</div>}
+            {!claims.length && <div style={{color:"#777"}}>Nenhuma declaração ainda.</div>}
           </div>
         </div>
 
-        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
-          <h3>Cartela</h3>
-          {!selected && <div>Selecione uma declaração ao lado.</div>}
-          {selected && (
-            <>
-              <div style={{ marginBottom: 8, color: "#555" }}>
-                Jogador: <b>{selected.playerName}</b> • Validação servidor: <b>{selected.serverCheck}</b>
-              </div>
-              <ClaimBoard claim={selected} />
-            </>
-          )}
+        {/* Coluna direita: preview da cartela + últimos sorteios */}
+        <div style={{ display:"grid", gridTemplateRows:"auto auto", gap:16 }}>
+          <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, background:"#fff" }}>
+            <h3 style={{marginTop:0}}>Cartela declarada</h3>
+            {!selected && <div style={{color:"#777"}}>Selecione uma declaração ao lado.</div>}
+            {selected && (
+              <>
+                <div style={{marginBottom:8, color:"#555"}}>
+                  Jogador: <b>{selected.playerName}</b> • Servidor: <b>{selected.serverCheck}</b>
+                </div>
+                <ClaimBoard claim={selected} />
+              </>
+            )}
+          </div>
+
+          <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, background:"#fff" }}>
+            <h3 style={{marginTop:0}}>Últimos sorteios</h3>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              {(state?.draws || []).slice(-24).reverse().map((d:any)=>(
+                <span key={d.index} style={{ border:"1px solid #ccc", borderRadius:6, padding:"4px 8px", background:"#f8f9fa" }}>
+                  {d.text}
+                </span>
+              ))}
+              {!state?.draws?.length && <span style={{color:"#777"}}>Ainda não há sorteios.</span>}
+            </div>
+          </div>
         </div>
       </div>
     </main>
   );
 }
+
 
 function ClaimBoard({ claim }: { claim: any }) {
   const layout: string[][] = claim.layout;
