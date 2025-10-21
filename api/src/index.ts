@@ -55,7 +55,7 @@ const SESS: Record<string, Session> = {};
 // pool simples (você pode trocar pelo seu dicionário)
 const WORDS = [
   'Pertencimento','Orgulho','Colaboração','Metas','Soul Up','Comunicação',
-  'Reconhecimento','Time','Transparência','Respeito','Ajudar','Sprint',
+  'Reconhecimento','Time','Token','Respeito','Ajudar','Sprint',
   'Solução','Aprendizado','Feedback','Proatividade','Compartilhar',
   'Superamos','Celebramos','Decisão','Fantasma','Bruxa','Vassoura',
   'Doces','Caveira','Energia Verde','Feitiço','Motivação','Energia','Empolgação',
