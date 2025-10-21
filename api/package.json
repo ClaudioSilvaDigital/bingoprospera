@@ -22,3 +22,15 @@
     "typescript": "^5.4.5"
   }
 }
+
+{
+  "dependencies": {
+    "@prisma/client": "^5.19.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.19.1"
+  },
+  "scripts": {
+    "postinstall": "prisma generate"
+  }
+}
