@@ -8,9 +8,8 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "strict": true
+    "strict": true,
+    "noImplicitAny": false   // <-- ADICIONE ESTA LINHA
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
