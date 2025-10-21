@@ -39,7 +39,22 @@ export default function Home(){
         <button onClick={createSession}>Criar sessão</button>
         <button onClick={drawNext} disabled={!sessionId}>Sortear próximo</button>
         <pre>{log}</pre>
-        {sessionId && <p>URL para jogadores (exemplo de rota): /play/{sessionId}</p>}
+        {sessionId && (
+  <p>
+    URL para jogadores:&nbsp;
+    <a
+      href={`${typeof window !== 'undefined' ? window.location.origin : ''}/play/${sessionId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ textDecoration: 'underline', color: '#0070f3' }}
+    >
+      {typeof window !== 'undefined'
+        ? `${window.location.origin}/play/${sessionId}`
+        : `/play/${sessionId}`}
+    </a>
+  </p>
+)}
+
       </div>
     </main>
   );
