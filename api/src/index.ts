@@ -155,6 +155,19 @@ app.get('/sessions/:id/analytics', (req,res)=>{
   const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
   res.json({ players: s.players.length, totalDraws: s.draws.length, durationSec: 0, topTerms: [] });
 });
+// Estado da sessão (config + draws atuais)
+app.get('/sessions/:id/state', (req, res) => {
+  const s = SESS[req.params.id];
+  if (!s) return res.status(404).json({ error: 'not found' });
+  res.json({
+    id: s.id,
+    rows: s.rows,
+    cols: s.cols,
+    win: s.win,
+    draws: s.draws,      // [{index, termId, text, drawnAt}]
+    termsCount: s.terms.length,
+  });
+});
 
 const port = Number(process.env.PORT || 10000);
 httpServer.listen(port, ()=> console.log(`API on :${port}`) );
