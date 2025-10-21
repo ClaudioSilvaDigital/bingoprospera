@@ -8,8 +8,8 @@ export default function App({ Component, pageProps }) {
         <Image
           src="/logo-prospera.svg"
           alt="Prospera"
-          width={40}
-          height={40}
+          width={300}
+          height={92}
           className="rounded"
           priority
         />
