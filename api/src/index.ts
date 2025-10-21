@@ -28,19 +28,8 @@ type Session = {
   status: 'pending'|'running'|'paused'|'ended';
   players: string[];
 };
-type Claim = {
-  id: string;
-  sessionId: string;
-  playerName: string;
-  playerId: string;
-  layout: string[][];        // snapshot da cartela do jogador
-  marks: Array<[number, number]>;
-  declaredAt: number;
-  clientHasBingo: boolean;   // validação feita no cliente (enviada)
-  serverCheck: 'unknown' | 'valid' | 'invalid';
-};
 
-const CLAIMS: Record<string, Claim[]> = {}; // por sessão
+
 
 const SESS: Record<string, Session> = {};
 
@@ -126,6 +115,49 @@ function hasBingoServer(layout: string[][], marks: Array<[number,number]>): bool
   return false;
 }
 
+async function saveClaimToDB(claim: {
+  id: string;
+  sessionId: string;
+  playerId: string;
+  playerName: string;
+  layout: string[][];
+  marks: Array<[number, number]>;
+  clientHasBingo: boolean;
+  serverCheck: 'unknown'|'valid'|'invalid';
+  declaredAt: number;
+}) {
+  await prisma.claim.create({
+    data: {
+      id: claim.id,
+      sessionId: claim.sessionId,
+      playerId: claim.playerId,
+      playerName: claim.playerName,
+      layout: claim.layout as any,
+      marks: claim.marks as any,
+      clientHasBingo: claim.clientHasBingo,
+      serverCheck: claim.serverCheck,
+      declaredAt: new Date(claim.declaredAt),
+    }
+  });
+}
+
+async function listClaimsFromDB(sessionId: string) {
+  const rows = await prisma.claim.findMany({
+    where: { sessionId },
+    orderBy: { declaredAt: 'asc' }
+  });
+  return rows.map(r => ({
+    id: r.id,
+    sessionId: r.sessionId,
+    playerId: r.playerId,
+    playerName: r.playerName,
+    layout: r.layout as any,
+    marks: r.marks as any,
+    clientHasBingo: r.clientHasBingo,
+    serverCheck: r.serverCheck as 'unknown'|'valid'|'invalid',
+    declaredAt: new Date(r.declaredAt).getTime(),
+  }));
+}
 
 
 app.post('/sessions', (req,res)=>{
@@ -192,8 +224,42 @@ app.post('/cards/:cardId/marks', (req,res)=>{
   res.json({ valid: true, message: "ok (boilerplate)", marksCount: 0 });
 });
 
-app.post('/sessions/:id/claim', (req,res)=>{
+app.post('/sessions/:id/claim', async (req,res)=>{
   const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
+
+  const schema = z.object({
+    playerId: z.string().min(1),
+    playerName: z.string().min(1),
+    layout: z.array(z.array(z.string())),
+    marks: z.array(z.tuple([z.number().int(), z.number().int()])),
+    clientHasBingo: z.boolean()
+  });
+  const parsed = schema.safeParse(req.body);
+  if(!parsed.success) return res.status(400).json(parsed.error);
+
+  const { playerId, playerName, layout, marks, clientHasBingo } = parsed.data;
+
+  const claim = {
+    id: uid(8),
+    sessionId: s.id,
+    playerId,
+    playerName,
+    layout,
+    marks,
+    declaredAt: Date.now(),
+    clientHasBingo,
+    serverCheck: hasBingoServer(layout, marks) ? 'valid' : 'invalid' as const
+  };
+
+  try {
+    await saveClaimToDB(claim);
+    return res.status(201).json({ status: 'received', claim });
+  } catch (e:any) {
+    console.error('claim save error', e);
+    return res.status(500).json({ error: 'persist_fail' });
+  }
+});
+
 
   // payload do cliente
   const schema = z.object({
@@ -245,10 +311,16 @@ app.get('/sessions/:id/state', (req, res) => {
   });
 });
 
-app.get('/sessions/:id/claims', (req,res)=>{
-  const list = CLAIMS[req.params.id] || [];
-  res.json({ count: list.length, claims: list });
+app.get('/sessions/:id/claims', async (req,res)=>{
+  try {
+    const list = await listClaimsFromDB(req.params.id);
+    res.json({ count: list.length, claims: list });
+  } catch (e:any) {
+    console.error('claim list error', e);
+    res.status(500).json({ error: 'list_fail' });
+  }
 });
+
 
 const port = Number(process.env.PORT || 10000);
 httpServer.listen(port, ()=> console.log(`API on :${port}`) );
