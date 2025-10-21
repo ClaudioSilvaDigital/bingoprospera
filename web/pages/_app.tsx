@@ -14,8 +14,9 @@ export default function App({ Component, pageProps }: AppProps) {
             height={92}
             priority
           />
+          <br>
           <span className="text-lg font-semibold text-gray-700 tracking-wide">
-            <br>Conexão Prospera - Bingo</br>
+            Conexão Prospera - Bingo
           </span>
         </a>
       </header>
