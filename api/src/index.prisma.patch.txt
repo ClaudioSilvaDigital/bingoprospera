@@ -1,0 +1,47 @@
+// === PATCH START (Prisma persistence for claims) ===
+import { prisma } from './db';
+
+async function saveClaimToDB(claim: {
+  id: string;
+  sessionId: string;
+  playerId: string;
+  playerName: string;
+  layout: string[][];
+  marks: Array<[number, number]>;
+  clientHasBingo: boolean;
+  serverCheck: 'unknown'|'valid'|'invalid';
+  declaredAt: number;
+}) {
+  await prisma.claim.create({
+    data: {
+      id: claim.id,
+      sessionId: claim.sessionId,
+      playerId: claim.playerId,
+      playerName: claim.playerName,
+      layout: claim.layout as any,
+      marks: claim.marks as any,
+      clientHasBingo: claim.clientHasBingo,
+      serverCheck: claim.serverCheck,
+      declaredAt: new Date(claim.declaredAt),
+    }
+  });
+}
+
+async function listClaimsFromDB(sessionId: string) {
+  const rows = await prisma.claim.findMany({
+    where: { sessionId },
+    orderBy: { declaredAt: 'asc' }
+  });
+  return rows.map(r => ({
+    id: r.id,
+    sessionId: r.sessionId,
+    playerId: r.playerId,
+    playerName: r.playerName,
+    layout: r.layout as any,
+    marks: r.marks as any,
+    clientHasBingo: r.clientHasBingo,
+    serverCheck: (r.serverCheck as any),
+    declaredAt: new Date(r.declaredAt).getTime(),
+  }));
+}
+// === PATCH END ===
