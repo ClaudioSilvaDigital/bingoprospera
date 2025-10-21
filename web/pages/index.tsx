@@ -143,7 +143,7 @@ function HomeScreen() {
       </main>
 
       <footer className="py-6 text-center text-xs text-gray-500">
-        © {new Date().getFullYear()} Prospera • Sustentabilidade em primeiro lugar
+        © {new Date().getFullYear()} Claudio Silva • Se não agora, quando?
       </footer>
     </div>
   );
@@ -259,7 +259,7 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
           <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
             <span className="text-prospera-primary font-black">P</span>
           </div>
-          <div className="font-bold">Prospera Bingo • Jogador</div>
+          <div className="font-bold">Conexão Prospera • Bingo</div>
           <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
         </div>
       </header>
