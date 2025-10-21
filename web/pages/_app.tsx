@@ -4,7 +4,7 @@ import "../styles/globals.css";
 export default function App({ Component, pageProps }) {
   return (
     <>
-      <header className="flex items-center justify-center gap-3 py-4 bg-white shadow-sm">
+      <header className="flex items-center justify-center gap-3 py-4 bg-green-50 border-b border-green-200">
         <Image
           src="/logo-prospera.svg"
           alt="Prospera"
