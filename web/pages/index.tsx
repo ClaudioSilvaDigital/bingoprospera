@@ -179,6 +179,25 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
 
   const keyRC = (r: number, c: number) => `${r},${c}`;
 
+
+
+  // === Rodada atual (número e regra) ===
+const [round, setRound] = useState<{ number: number; rule: '1-linha' | '2-linhas' | 'cheia' } | null>(null);
+
+useEffect(() => {
+  let t: any;
+  const tick = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/sessions/${sessionId}/round`);
+      if (r.ok) setRound(await r.json());
+    } catch {}
+    t = setTimeout(tick, 4000);
+  };
+  tick();
+  return () => { if (t) clearTimeout(t); };
+}, [sessionId]);
+
+
   async function join() {
     setError("");
     try {
