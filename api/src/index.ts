@@ -5,10 +5,43 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import { prisma } from './db.js';
 
-
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+function countCompletedLines(layout: string[][], marks: Array<[number, number]>) {
+  const R = layout.length;
+  const C = layout[0]?.length || 0;
+  if (!R || !C) return 0;
+  const set = new Set(marks.map(([r,c]) => `${r},${c}`));
+  let lines = 0;
+
+  // linhas
+  for (let r=0;r<R;r++){
+    let ok=true; for(let c=0;c<C;c++) if(!set.has(`${r},${c}`)){ ok=false; break; }
+    if (ok) lines++;
+  }
+  // colunas
+  for (let c=0;c<C;c++){
+    let ok=true; for(let r=0;r<R;r++) if(!set.has(`${r},${c}`)){ ok=false; break; }
+    if (ok) lines++;
+  }
+  // diagonais (contam como linhas também)
+  { let ok=true; for(let i=0;i<Math.min(R,C);i++) if(!set.has(`${i},${i}`)){ ok=false; break; } if (ok) lines++; }
+  { let ok=true; for(let i=0;i<Math.min(R,C);i++) if(!set.has(`${i},${C-1-i}`)){ ok=false; break; } if (ok) lines++; }
+
+  return lines;
+}
+
+function serverCheckByRule(layout: string[][], marks: Array<[number,number]>, rule: '1-linha'|'2-linhas'|'cheia') {
+  const lines = countCompletedLines(layout, marks);
+  if (rule === '1-linha')  return lines >= 1 ? 'valid' : 'invalid';
+  if (rule === '2-linhas') return lines >= 2 ? 'valid' : 'invalid';
+  if (rule === 'cheia') {
+  const total = layout.length * (layout[0]?.length || 0);
+  return marks.length >= total ? 'valid' : 'invalid';
+}
+
 
 // Health
 app.get('/', (_req, res) => {
@@ -52,6 +85,11 @@ type Session = {
 };
 const SESS: Record<string, Session> = {};
 
+  // ===== Rodada ativa por sessão (memória) =====
+type RoundMem = { number: number; rule: '1-linha'|'2-linhas'|'cheia' };
+const ACTIVE_ROUND: Record<string, RoundMem> = {};
+
+
 // pool simples (você pode trocar pelo seu dicionário)
 const WORDS = [
   'Pertencimento','Orgulho','Colaboração','Metas','Soul Up','Comunicação',
@@ -81,10 +119,12 @@ function makeBoard(rows:number, cols:number, terms:string[]): string[][] {
   return grid;
 }
 
+
+
 // ====== Rotas ======
 
 // cria sessão
-app.post('/sessions', (req, res) => {
+app.post('/sessions', async (req, res) => {
   const schema = z.object({
     gridRows: z.number().int().min(3).max(12),
     gridCols: z.number().int().min(3).max(12),
@@ -104,6 +144,16 @@ app.post('/sessions', (req, res) => {
     draws: [],
     players: []
   };
+
+// Rodada inicial (#1) com regra padrão
+ACTIVE_ROUND[id] = { number: 1, rule: '1-linha' };
+
+// Persiste a rodada #1 no banco
+await prisma.round.create({
+  data: { sessionId: id, number: 1, rule: '1-linha', isActive: true }
+});
+
+  
   res.status(201).json({ id });
 });
 
@@ -137,6 +187,29 @@ app.get('/sessions/:id/state', (req,res)=>{
   res.json({ id: s.id, rows: s.rows, cols: s.cols, win: s.win, draws: s.draws, termsCount: s.terms.length });
 });
 
+app.get('/sessions/:id/round', async (req, res) => {
+  const s = SESS[req.params.id]; 
+  if (!s) return res.status(404).json({ error: 'not found' });
+
+  // tenta memória primeiro
+  let m = ACTIVE_ROUND[req.params.id];
+  if (!m) {
+    // fallback no banco, caso a API tenha reiniciado
+    const r = await prisma.round.findFirst({
+      where: { sessionId: req.params.id, isActive: true },
+      orderBy: { number: 'desc' }
+    });
+    if (r) {
+      m = ACTIVE_ROUND[req.params.id] = { number: r.number, rule: r.rule as any };
+    } else {
+      // como segurança, recria #1
+      m = ACTIVE_ROUND[req.params.id] = { number: 1, rule: '1-linha' };
+      await prisma.round.create({ data: { sessionId: req.params.id, number: 1, rule: '1-linha', isActive: true } });
+    }
+  }
+  res.json(m);
+});
+ 
 // ===== Claims — persistência em Postgres (Prisma) =====
 
 // salvar claim
