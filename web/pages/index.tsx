@@ -316,6 +316,10 @@ useEffect(() => {
 
         {cols > 0 && (
           <section className="card p-4 md:p-6">
+            <div className="text-sm text-gray-700 mb-2">
+  Rodada #{round?.number ?? '-'} — Regra: <b>{round?.rule ?? '-'}</b>
+</div>
+
             <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
               {layout.map((row, r) =>
                 row.map((t, c) => {
