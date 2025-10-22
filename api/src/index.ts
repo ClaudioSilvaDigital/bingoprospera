@@ -257,7 +257,7 @@ app.post('/sessions/:id/round/start', async (req, res) => {
   });
 
   ACTIVE_ROUND[req.params.id] = { number: created.number, rule: created.rule as any };
-  return res.status(201).json(ACTOR_ROUND[req.params.id]);
+  return res.status(201).json(ACTIVE_ROUND[req.params.id]);
 });
 
 // Altera regra da rodada ativa
