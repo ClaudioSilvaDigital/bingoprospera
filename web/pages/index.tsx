@@ -118,7 +118,7 @@ function HomeScreen() {
     <>
       {/* Boas Práticas + QR (Jogadores) */}
       <section className="card p-4 md:p-5 mt-6 bg-green-50 border border-green-200 rounded-xl shadow-sm">
-        <h3 className="text-xl font-semibold text-green-800 mb-3">Link de Acesso - Jogar</h3>
+        <h3 className="text-xl font-semibold text-green-800 mb-3">Boas Práticas</h3>
         <p className="text-gray-700 mb-4">
           Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
         </p>
@@ -141,10 +141,27 @@ function HomeScreen() {
         </div>
       </section>
 
-      
+      {/* Link da Gestão (Admin) */}
+      <section className="card p-4 md:p-5 mt-4">
+        <h4 className="text-base font-semibold text-gray-800 mb-2">Link da gestão (Admin)</h4>
+        <div className="flex flex-wrap items-center gap-2">
+          <a href={adminHref} className="text-prospera-primary underline break-all">
+            {adminUrl}
+          </a>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard?.writeText(adminUrl)}
+            className="btn-secondary text-sm"
+            title="Copiar link da gestão"
+          >
+            Copiar
+          </button>
+        </div>
+      </section>
     </>
   );
 })()}
+
 
         </section>
 
