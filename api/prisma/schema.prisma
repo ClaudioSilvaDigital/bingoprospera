@@ -17,6 +17,8 @@ model Claim {
   clientHasBingo Boolean
   serverCheck    String
   declaredAt     DateTime @default(now())
+  roundNumber  Int      // número da rodada na sessão
+  roundRule    String   // regra usada na rodada (para auditoria)
 
   @@index([sessionId])
   @@index([declaredAt])
