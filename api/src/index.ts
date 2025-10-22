@@ -258,8 +258,9 @@ app.post('/sessions/:id/round/rule', async (req,res)=>{
 // ===== Claims — persistência em Postgres (Prisma) =====
 
 // salvar claim
-app.post('/sessions/:id/claim', async (req,res)=>{
-  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
+app.post('/sessions/:id/claim', async (req, res) => {
+  const s = SESS[req.params.id];
+  if (!s) return res.status(404).json({ error: 'not found' });
 
   const schema = z.object({
     playerId: z.string().min(1),
@@ -269,10 +270,32 @@ app.post('/sessions/:id/claim', async (req,res)=>{
     clientHasBingo: z.boolean()
   });
   const parsed = schema.safeParse(req.body);
-  if(!parsed.success) return res.status(400).json(parsed.error);
+  if (!parsed.success) return res.status(400).json(parsed.error);
 
   const { playerId, playerName, layout, marks, clientHasBingo } = parsed.data;
 
+  // 1) Descobrir rodada ativa (memória -> banco -> fallback #1)
+  let current = ACTIVE_ROUND[s.id] as { number: number; rule: '1-linha'|'2-linhas'|'cheia' } | undefined;
+  if (!current) {
+    const r = await prisma.round.findFirst({
+      where: { sessionId: s.id, isActive: true },
+      orderBy: { number: 'desc' }
+    });
+    if (r) {
+      current = ACTIVE_ROUND[s.id] = { number: r.number, rule: r.rule as any };
+    } else {
+      current = ACTIVE_ROUND[s.id] = { number: 1, rule: '1-linha' };
+      await prisma.round.create({ data: { sessionId: s.id, number: 1, rule: '1-linha', isActive: true } });
+    }
+  }
+
+  const roundNumber = current.number;
+  const roundRule   = current.rule;
+
+  // 2) Validar no servidor conforme a regra da rodada
+  const verdict = serverCheckByRule(layout, marks, roundRule); // 'valid' | 'invalid'
+
+  // 3) Montar objeto de claim
   const claim = {
     id: uid(8),
     sessionId: s.id,
@@ -282,9 +305,10 @@ app.post('/sessions/:id/claim', async (req,res)=>{
     marks,
     declaredAt: Date.now(),
     clientHasBingo,
-    serverCheck: hasBingoServer(layout, marks) ? 'valid' : 'invalid' as const
+    serverCheck: verdict as 'valid'|'invalid'|'unknown'
   };
 
+  // 4) Persistir com roundNumber/roundRule
   try {
     await prisma.claim.create({
       data: {
@@ -297,14 +321,17 @@ app.post('/sessions/:id/claim', async (req,res)=>{
         clientHasBingo: claim.clientHasBingo,
         serverCheck: claim.serverCheck,
         declaredAt: new Date(claim.declaredAt),
+        roundNumber,
+        roundRule
       }
     });
-    return res.status(201).json({ status: 'received', claim });
-  } catch (e:any) {
+    return res.status(201).json({ status: 'received', claim: { ...claim, roundNumber, roundRule } });
+  } catch (e: any) {
     console.error('claim save error', e);
     return res.status(500).json({ error: 'persist_fail' });
   }
 });
+
 
 // listar claims
 app.get('/sessions/:id/claims', async (req,res)=>{
