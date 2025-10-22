@@ -141,7 +141,27 @@ function HomeScreen() {
         </div>
       </section>
 
-      {/* Link da Gestão (Admin) — volta a aparecer aqui */}
+      
+    </>
+  );
+})()}
+
+        </section>
+
+        <section className="card p-6">
+          <h2 className="h2 mb-2">Boas Práticas</h2>
+          <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
+            <li>Não imprime nada. Tudo via navegador.</li>
+            <li>Compatível com celular (toques grandes, contraste alto).</li>
+            <li>Paleta Prospera para reforçar a identidade.</li>
+            <li>Fácil de operar em eventos: sessão, sorteio, telão e gestão.</li>
+          </ul>
+          <div className="mt-4 rounded-2xl border border-dashed border-prospera-accent/40 p-3 text-sm text-gray-600">
+            Dica: use o link de gestão num telão e o de jogadores via QR code.
+          </div>
+        </section>
+
+        {/* Link da Gestão (Admin) — volta a aparecer aqui */}
       <section className="card p-4 md:p-5 mt-4">
         <h4 className="text-base font-semibold text-gray-800 mb-2">Link da gestão (Admin)</h4>
         <div className="flex flex-wrap items-center gap-2">
@@ -158,24 +178,6 @@ function HomeScreen() {
           </button>
         </div>
       </section>
-    </>
-  );
-})()}
-
-        </section>
-
-        <section className="card p-6">
-          <h2 className="h2 mb-2">Boas práticas</h2>
-          <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
-            <li>Não imprime nada. Tudo via navegador.</li>
-            <li>Compatível com celular (toques grandes, contraste alto).</li>
-            <li>Paleta Prospera para reforçar a identidade.</li>
-            <li>Fácil de operar em eventos: sessão, sorteio, telão e gestão.</li>
-          </ul>
-          <div className="mt-4 rounded-2xl border border-dashed border-prospera-accent/40 p-3 text-sm text-gray-600">
-            Dica: use o link de gestão num telão e o de jogadores via QR code.
-          </div>
-        </section>
       </main>
 
       <footer className="py-6 text-center text-xs text-gray-500">
