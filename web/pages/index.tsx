@@ -38,6 +38,20 @@ function HomeScreen() {
   const [cols, setCols] = useState(6);
   const [log, setLog] = useState<string>("");
 
+  // <<< calcule URLs uma vez por sessão >>>
+  const { origin, playerHref, adminHref, playerUrl, adminUrl } = useMemo(() => {
+    const o = typeof window !== "undefined" ? window.location.origin : "";
+    const pHref = sessionId ? `/#/play/${sessionId}` : "";
+    const aHref = sessionId ? `/#/admin/${sessionId}` : "";
+    return {
+      origin: o,
+      playerHref: pHref,
+      adminHref: aHref,
+      playerUrl: o && pHref ? `${o}${pHref}` : pHref,
+      adminUrl:  o && aHref ? `${o}${aHref}` : aHref,
+    };
+  }, [sessionId]);
+
   async function createSession() {
     const res = await fetch(`${API_BASE}/sessions`, {
       method: "POST",
@@ -56,19 +70,12 @@ function HomeScreen() {
     setLog(`Sorteado: ${data.text}`);
   }
 
-  const fullPlayerLink =
-    typeof window !== "undefined" && sessionId
-      ? `${window.location.origin}/#/play/${sessionId}`
-      : "";
-  const fullAdminLink =
-    typeof window !== "undefined" && sessionId
-      ? `${window.location.origin}/#/admin/${sessionId}`
-      : "";
-
   return (
     <div className="min-h-full">
+      {/* ... seu header global já está no _app.tsx ... */}
 
       <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-2 gap-8">
+        {/* Bloco principal de criação da sessão (inalterado) */}
         <section className="card p-6">
           <h1 className="h1 mb-2">Criar Sessão</h1>
           <p className="subtle mb-6">Defina o tamanho da cartela e comece o sorteio.</p>
@@ -77,22 +84,16 @@ function HomeScreen() {
             <label className="text-sm">
               Linhas
               <input
-                type="number"
-                min={3}
-                max={12}
-                value={rows}
-                onChange={(e) => setRows(Number(e.target.value))}
+                type="number" min={3} max={12}
+                value={rows} onChange={(e) => setRows(Number(e.target.value))}
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-prospera-accent"
               />
             </label>
             <label className="text-sm">
               Colunas
               <input
-                type="number"
-                min={3}
-                max={12}
-                value={cols}
-                onChange={(e) => setCols(Number(e.target.value))}
+                type="number" min={3} max={12}
+                value={cols} onChange={(e) => setCols(Number(e.target.value))}
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-prospera-accent"
               />
             </label>
@@ -106,103 +107,66 @@ function HomeScreen() {
           </div>
 
           <pre className="mt-4 text-sm bg-gray-50 rounded-xl p-3 border border-gray-100">{log || "—"}</pre>
-
-{sessionId && (() => {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const playerHref = `/#/play/${sessionId}`;
-  const adminHref  = `/#/admin/${sessionId}`;
-  const playerUrl  = origin ? `${origin}${playerHref}` : playerHref;
-  const adminUrl   = origin ? `${origin}${adminHref}`  : adminHref;
-
-  return (
-    <>
-      {/* Boas Práticas + QR (Jogadores) */}
-      <section className="card p-4 md:p-5 mt-6 bg-green-50 border border-green-200 rounded-xl shadow-sm">
-        <h3 className="text-xl font-semibold text-green-800 mb-3">Boas Práticas</h3>
-        <p className="text-gray-700 mb-4">
-          Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
-        </p>
-
-        <div className="flex flex-col items-center gap-3">
-          <QRCodeCanvas
-            value={playerUrl}
-            size={180}
-            bgColor="#ffffff"
-            fgColor="#166534"
-            level="H"
-            includeMargin
-          />
-          <p className="text-sm text-gray-600 text-center break-all">
-            Ou acesse:&nbsp;
-            <a href={playerHref} className="text-green-700 underline">
-              {playerUrl}
-            </a>
-          </p>
-        </div>
-      </section>
-
-      {/* Link da Gestão (Admin) */}
-      <section className="card p-4 md:p-5 mt-4">
-        <h4 className="text-base font-semibold text-gray-800 mb-2">Link da gestão (Admin)</h4>
-        <div className="flex flex-wrap items-center gap-2">
-          <a href={adminHref} className="text-prospera-primary underline break-all">
-            {adminUrl}
-          </a>
-          <button
-            type="button"
-            onClick={() => navigator.clipboard?.writeText(adminUrl)}
-            className="btn-secondary text-sm"
-            title="Copiar link da gestão"
-          >
-            Copiar
-          </button>
-        </div>
-      </section>
-    </>
-  );
-})()}
-
-
         </section>
 
+        {/* Boas práticas + QR (Jogadores) */}
         <section className="card p-6">
-          <h2 className="h2 mb-2">Boas Práticas</h2>
-          <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
-            <li>Não imprime nada. Tudo via navegador.</li>
-            <li>Compatível com celular (toques grandes, contraste alto).</li>
-            <li>Paleta Prospera para reforçar a identidade.</li>
-            <li>Fácil de operar em eventos: sessão, sorteio, telão e gestão.</li>
-          </ul>
-          <div className="mt-4 rounded-2xl border border-dashed border-prospera-accent/40 p-3 text-sm text-gray-600">
-            Dica: use o link de gestão num telão e o de jogadores via QR code.
-          </div>
-        </section>
+          <h2 className="h2 mb-2">Boas práticas</h2>
+          {!sessionId && <p className="subtle">Crie uma sessão para gerar o QR Code dos jogadores.</p>}
 
-        {/* Link da Gestão (Admin) — volta a aparecer aqui */}
-      <section className="card p-4 md:p-5 mt-4">
-        <h4 className="text-base font-semibold text-gray-800 mb-2">Link da gestão (Admin)</h4>
-        <div className="flex flex-wrap items-center gap-2">
-          <a href={adminHref} className="text-prospera-primary underline break-all">
-            {adminUrl}
-          </a>
-          <button
-            type="button"
-            onClick={() => navigator.clipboard?.writeText(adminUrl)}
-            className="btn-secondary text-sm"
-            title="Copiar link da gestão"
-          >
-            Copiar
-          </button>
-        </div>
-      </section>
+          {sessionId && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 shadow-soft">
+              <p className="text-gray-700 mb-4">
+                Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
+              </p>
+              <div className="flex flex-col items-center gap-3">
+                <QRCodeCanvas
+                  value={playerUrl}
+                  size={180}
+                  bgColor="#ffffff"
+                  fgColor="#166534"
+                  level="H"
+                  includeMargin
+                />
+                <p className="text-sm text-gray-600 text-center break-all">
+                  Ou acesse:&nbsp;
+                  <a href={playerHref} className="text-green-700 underline">
+                    {playerUrl}
+                  </a>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Link da gestão (sempre visível quando há sessão) */}
+          {sessionId && (
+            <div className="card p-4 mt-4">
+              <h4 className="text-base font-semibold text-gray-800 mb-2">Link da gestão (Admin)</h4>
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={adminHref} className="text-prospera-primary underline break-all">
+                  {adminUrl}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(adminUrl)}
+                  className="btn-secondary text-sm"
+                  title="Copiar link da gestão"
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </main>
 
       <footer className="py-6 text-center text-xs text-gray-500">
-        © {new Date().getFullYear()} Claudio Silva • Se não agora, quando?
+        © {new Date().getFullYear()} Claudio Silva • Se Não Agora, Quando?
       </footer>
     </div>
   );
 }
+
 
 /* =============== PLAY =============== */
 function PlayScreen({ sessionId }: { sessionId: string }) {
