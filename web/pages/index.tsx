@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
+
 
 const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
 const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http://localhost:10000";
