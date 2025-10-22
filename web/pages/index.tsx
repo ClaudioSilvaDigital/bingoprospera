@@ -107,41 +107,61 @@ function HomeScreen() {
 
           <pre className="mt-4 text-sm bg-gray-50 rounded-xl p-3 border border-gray-100">{log || "—"}</pre>
 
-{sessionId && (
-  <section className="card p-4 md:p-5 mt-6 bg-green-50 border border-green-200 rounded-xl shadow-sm">
-    <h3 className="text-xl font-semibold text-green-800 mb-3">Acesso - Time</h3>
-    <p className="text-gray-700 mb-4">
-      Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
-    </p>
+{sessionId && (() => {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const playerHref = `/#/play/${sessionId}`;
+  const adminHref  = `/#/admin/${sessionId}`;
+  const playerUrl  = origin ? `${origin}${playerHref}` : playerHref;
+  const adminUrl   = origin ? `${origin}${adminHref}`  : adminHref;
 
-    <div className="flex flex-col items-center gap-3">
-      <QRCodeCanvas
-        value={
-          typeof window !== "undefined"
-            ? `${window.location.origin}/#/play/${sessionId}`
-            : `/#/play/${sessionId}`
-        }
-        size={180}
-        bgColor="#ffffff"
-        fgColor="#166534"   // verde Prospera
-        level="H"
-        includeMargin={true}
-      />
+  return (
+    <>
+      {/* Boas Práticas + QR (Jogadores) */}
+      <section className="card p-4 md:p-5 mt-6 bg-green-50 border border-green-200 rounded-xl shadow-sm">
+        <h3 className="text-xl font-semibold text-green-800 mb-3">Link de Acesso - Jogar</h3>
+        <p className="text-gray-700 mb-4">
+          Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
+        </p>
 
-      <p className="text-sm text-gray-600 text-center break-all">
-        Ou acesse:&nbsp;
-        <a
-          href={`/#/play/${sessionId}`}
-          className="text-green-700 underline"
-        >
-          {typeof window !== "undefined"
-            ? `${window.location.origin}/#/play/${sessionId}`
-            : `/#/play/${sessionId}`}
-        </a>
-      </p>
-    </div>
-  </section>
-)}
+        <div className="flex flex-col items-center gap-3">
+          <QRCodeCanvas
+            value={playerUrl}
+            size={180}
+            bgColor="#ffffff"
+            fgColor="#166534"
+            level="H"
+            includeMargin
+          />
+          <p className="text-sm text-gray-600 text-center break-all">
+            Ou acesse:&nbsp;
+            <a href={playerHref} className="text-green-700 underline">
+              {playerUrl}
+            </a>
+          </p>
+        </div>
+      </section>
+
+      {/* Link da Gestão (Admin) — volta a aparecer aqui */}
+      <section className="card p-4 md:p-5 mt-4">
+        <h4 className="text-base font-semibold text-gray-800 mb-2">Link da gestão (Admin)</h4>
+        <div className="flex flex-wrap items-center gap-2">
+          <a href={adminHref} className="text-prospera-primary underline break-all">
+            {adminUrl}
+          </a>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard?.writeText(adminUrl)}
+            className="btn-secondary text-sm"
+            title="Copiar link da gestão"
+          >
+            Copiar
+          </button>
+        </div>
+      </section>
+    </>
+  );
+})()}
+
         </section>
 
         <section className="card p-6">
