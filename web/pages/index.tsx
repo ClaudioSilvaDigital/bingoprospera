@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+soimport { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
 
@@ -109,7 +109,7 @@ function HomeScreen() {
 
 {sessionId && (
   <section className="card p-4 md:p-5 mt-6 bg-green-50 border border-green-200 rounded-xl shadow-sm">
-    <h3 className="text-xl font-semibold text-green-800 mb-3">Boas Práticas</h3>
+    <h3 className="text-xl font-semibold text-green-800 mb-3">Acesso - Time</h3>
     <p className="text-gray-700 mb-4">
       Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
     </p>
