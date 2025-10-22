@@ -210,92 +210,139 @@ app.get('/sessions/:id/round', async (req, res) => {
   res.json(m);
 });
 
-  // GET rodada atual
-app.get('/sessions/:id/round', async (req,res)=>{
-  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
-  // tenta memória primeiro
+  // ============================================================
+// GET rodada ativa — usado pelo Admin e pelos jogadores
+// ============================================================
+app.get("/sessions/:id/round", async (req, res) => {
+  const s = SESS[req.params.id];
+  if (!s) return res.status(404).json({ error: "not found" });
+
   let m = ACTIVE_ROUND[req.params.id];
   if (!m) {
-    const r = await prisma.round.findFirst({ where: { sessionId: req.params.id, isActive: true }, orderBy: { number: 'desc' } });
-    if (r) m = ACTIVE_ROUND[req.params.id] = { number: r.number, rule: r.rule as any };
-    else { // fallback criar #1 se inexistente
-      m = ACTIVE_ROUND[req.params.id] = { number: 1, rule: '1-linha' };
-      await prisma.round.create({ data: { sessionId: req.params.id, number: 1, rule: '1-linha', isActive: true }});
+    const r = await prisma.round.findFirst({
+      where: { sessionId: req.params.id, isActive: true },
+      orderBy: { number: "desc" },
+    });
+    if (r) {
+      m = ACTIVE_ROUND[req.params.id] = { number: r.number, rule: r.rule as any };
+    } else {
+      m = ACTIVE_ROUND[req.params.id] = { number: 1, rule: "1-linha" };
+      await prisma.round.create({
+        data: { sessionId: req.params.id, number: 1, rule: "1-linha", isActive: true },
+      });
     }
   }
-  res.json(m);
+  return res.json(m);
 });
 
-// POST iniciar nova rodada (incrementa number e define rule)
-app.post('/sessions/:id/round/start', async (req,res)=>{
-  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
-  const schema = z.object({ rule: z.enum(['1-linha','2-linhas','cheia']).default('1-linha') });
-  const parsed = schema.safeParse(req.body); if(!parsed.success) return res.status(400).json(parsed.error);
-  const current = await prisma.round.findFirst({ where: { sessionId: req.params.id, isActive: true }, orderBy: { number: 'desc' } });
+// ============================================================
+// POST /sessions/:id/round/start — inicia NOVA rodada
+// body: { rule: '1-linha' | '2-linhas' | 'cheia' } (default: '1-linha')
+// ============================================================
+app.post("/sessions/:id/round/start", async (req, res) => {
+  const s = SESS[req.params.id];
+  if (!s) return res.status(404).json({ error: "not found" });
+
+  const schema = z.object({
+    rule: z.enum(["1-linha", "2-linhas", "cheia"]).default("1-linha"),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error);
+
+  const current = await prisma.round.findFirst({
+    where: { sessionId: req.params.id, isActive: true },
+    orderBy: { number: "desc" },
+  });
   const nextNum = (current?.number ?? 0) + 1;
 
   if (current) {
-    await prisma.round.update({ where: { sessionId_number: { sessionId: req.params.id, number: current.number }}, data: { isActive: false, endedAt: new Date() }});
+    await prisma.round.update({
+      where: { sessionId_number: { sessionId: req.params.id, number: current.number } },
+      data: { isActive: false, endedAt: new Date() },
+    });
   }
-  await prisma.round.create({ data: { sessionId: req.params.id, number: nextNum, rule: parsed.data.rule, isActive: true }});
-  ACTIVE_ROUND[req.params.id] = { number: nextNum, rule: parsed.data.rule };
-  res.status(201).json(ACTIVE_ROUND[req.params.id]);
+
+  const created = await prisma.round.create({
+    data: {
+      sessionId: req.params.id,
+      number: nextNum,
+      rule: parsed.data.rule,
+      isActive: true,
+    },
+  });
+
+  ACTIVE_ROUND[req.params.id] = { number: created.number, rule: created.rule as any };
+  return res.status(201).json(ACTIVE_ROUND[req.params.id]);
 });
 
-// POST alterar regra da rodada atual (sem encerrar a rodada)
-app.post('/sessions/:id/round/rule', async (req,res)=>{
-  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
-  const schema = z.object({ rule: z.enum(['1-linha','2-linhas','cheia']) });
-  const parsed = schema.safeParse(req.body); if(!parsed.success) return res.status(400).json(parsed.error);
-  const r = await prisma.round.findFirst({ where: { sessionId: req.params.id, isActive: true }, orderBy: { number: 'desc' }});
-  if (!r) return res.status(404).json({error:'no-active-round'});
-  await prisma.round.update({ where: { sessionId_number: { sessionId: req.params.id, number: r.number }}, data: { rule: parsed.data.rule }});
-  ACTIVE_ROUND[req.params.id] = { number: r.number, rule: parsed.data.rule };
-  res.json(ACTIVE_ROUND[req.params.id]);
-});
-
- 
-// ===== Claims — persistência em Postgres (Prisma) =====
-
-// salvar claim
-app.post('/sessions/:id/claim', async (req, res) => {
+// ============================================================
+// POST /sessions/:id/round/rule — altera REGRA da rodada ATIVA
+// body: { rule: '1-linha' | '2-linhas' | 'cheia' }
+// ============================================================
+app.post("/sessions/:id/round/rule", async (req, res) => {
   const s = SESS[req.params.id];
-  if (!s) return res.status(404).json({ error: 'not found' });
+  if (!s) return res.status(404).json({ error: "not found" });
+
+  const schema = z.object({
+    rule: z.enum(["1-linha", "2-linhas", "cheia"]),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error);
+
+  const r = await prisma.round.findFirst({
+    where: { sessionId: req.params.id, isActive: true },
+    orderBy: { number: "desc" },
+  });
+  if (!r) return res.status(404).json({ error: "no-active-round" });
+
+  const updated = await prisma.round.update({
+    where: { sessionId_number: { sessionId: req.params.id, number: r.number } },
+    data: { rule: parsed.data.rule },
+  });
+
+  ACTIVE_ROUND[req.params.id] = { number: updated.number, rule: updated.rule as any };
+  return res.json(ACTIVE_ROUND[req.params.id]);
+});
+
+// ============================================================
+// POST /sessions/:id/claim — salva claim com roundNumber/rule e validação server-side
+// ============================================================
+app.post("/sessions/:id/claim", async (req, res) => {
+  const s = SESS[req.params.id];
+  if (!s) return res.status(404).json({ error: "not found" });
 
   const schema = z.object({
     playerId: z.string().min(1),
     playerName: z.string().min(1),
     layout: z.array(z.array(z.string())),
     marks: z.array(z.tuple([z.number().int(), z.number().int()])),
-    clientHasBingo: z.boolean()
+    clientHasBingo: z.boolean(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error);
-
   const { playerId, playerName, layout, marks, clientHasBingo } = parsed.data;
 
-  // 1) Descobrir rodada ativa (memória -> banco -> fallback #1)
-  let current = ACTIVE_ROUND[s.id] as { number: number; rule: '1-linha'|'2-linhas'|'cheia' } | undefined;
+  // pegar rodada ativa (memória → banco → fallback #1)
+  let current = ACTIVE_ROUND[s.id] as { number: number; rule: "1-linha" | "2-linhas" | "cheia" } | undefined;
   if (!current) {
     const r = await prisma.round.findFirst({
       where: { sessionId: s.id, isActive: true },
-      orderBy: { number: 'desc' }
+      orderBy: { number: "desc" },
     });
     if (r) {
       current = ACTIVE_ROUND[s.id] = { number: r.number, rule: r.rule as any };
     } else {
-      current = ACTIVE_ROUND[s.id] = { number: 1, rule: '1-linha' };
-      await prisma.round.create({ data: { sessionId: s.id, number: 1, rule: '1-linha', isActive: true } });
+      current = ACTIVE_ROUND[s.id] = { number: 1, rule: "1-linha" };
+      await prisma.round.create({
+        data: { sessionId: s.id, number: 1, rule: "1-linha", isActive: true },
+      });
     }
   }
 
   const roundNumber = current.number;
-  const roundRule   = current.rule;
-
-  // 2) Validar no servidor conforme a regra da rodada
+  const roundRule = current.rule;
   const verdict = serverCheckByRule(layout, marks, roundRule); // 'valid' | 'invalid'
 
-  // 3) Montar objeto de claim
   const claim = {
     id: uid(8),
     sessionId: s.id,
@@ -305,10 +352,9 @@ app.post('/sessions/:id/claim', async (req, res) => {
     marks,
     declaredAt: Date.now(),
     clientHasBingo,
-    serverCheck: verdict as 'valid'|'invalid'|'unknown'
+    serverCheck: verdict as "valid" | "invalid" | "unknown",
   };
 
-  // 4) Persistir com roundNumber/roundRule
   try {
     await prisma.claim.create({
       data: {
@@ -322,26 +368,28 @@ app.post('/sessions/:id/claim', async (req, res) => {
         serverCheck: claim.serverCheck,
         declaredAt: new Date(claim.declaredAt),
         roundNumber,
-        roundRule
-      }
+        roundRule,
+      },
     });
-    return res.status(201).json({ status: 'received', claim: { ...claim, roundNumber, roundRule } });
+    return res.status(201).json({ status: "received", claim: { ...claim, roundNumber, roundRule } });
   } catch (e: any) {
-    console.error('claim save error', e);
-    return res.status(500).json({ error: 'persist_fail' });
+    console.error("claim save error", e);
+    return res.status(500).json({ error: "persist_fail" });
   }
 });
 
-
-// listar claims
-app.get('/sessions/:id/claims', async (req, res) => {
+// ============================================================
+// GET /sessions/:id/claims — lista claims (opcional ?round=NUM)
+// ============================================================
+app.get("/sessions/:id/claims", async (req, res) => {
   try {
     const roundParam = req.query.round ? Number(req.query.round) : undefined;
     const rows = await prisma.claim.findMany({
       where: { sessionId: req.params.id, ...(roundParam ? { roundNumber: roundParam } : {}) },
-      orderBy: { declaredAt: 'asc' }
+      orderBy: { declaredAt: "asc" },
     });
-    const claims = rows.map(r => ({
+
+    const claims = rows.map((r) => ({
       id: r.id,
       sessionId: r.sessionId,
       playerId: r.playerId,
@@ -349,20 +397,22 @@ app.get('/sessions/:id/claims', async (req, res) => {
       layout: r.layout as any,
       marks: r.marks as any,
       clientHasBingo: r.clientHasBingo,
-      serverCheck: r.serverCheck as 'valid'|'invalid'|'unknown',
+      serverCheck: r.serverCheck as "valid" | "invalid" | "unknown",
       declaredAt: new Date(r.declaredAt).getTime(),
       roundNumber: r.roundNumber,
-      roundRule: r.roundRule
+      roundRule: r.roundRule,
     }));
-    res.json({ count: claims.length, claims });
-  } catch (e:any) {
-    console.error('claim list error', e);
-    res.status(500).json({ error: 'list_fail' });
+
+    return res.json({ count: claims.length, claims });
+  } catch (e: any) {
+    console.error("claim list error", e);
+    return res.status(500).json({ error: "list_fail" });
   }
 });
 
 
 // ===== listen =====
-const port = Number(process.env.PORT || 10000);
-app.listen(port, () => {
-  console.log(`API listening on :${port}`));
+const PORT = process.env.PORT ? Number(process.env.PORT) : 10000;
+app.listen(PORT, () => {
+  console.log(`API listening on :${PORT}`);
+});
