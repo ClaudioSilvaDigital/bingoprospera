@@ -21,3 +21,15 @@ model Claim {
   @@index([sessionId])
   @@index([declaredAt])
 }
+model Round {
+  id         String   @id @default(cuid())
+  sessionId  String
+  number     Int
+  rule       String   // "1-linha" | "2-linhas" | "cheia"
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  endedAt    DateTime?
+
+  @@index([sessionId, isActive])
+  @@unique([sessionId, number])
+}
