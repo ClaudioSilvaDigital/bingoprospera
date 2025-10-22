@@ -334,10 +334,11 @@ app.post('/sessions/:id/claim', async (req, res) => {
 
 
 // listar claims
-app.get('/sessions/:id/claims', async (req,res)=>{
+app.get('/sessions/:id/claims', async (req, res) => {
   try {
+    const roundParam = req.query.round ? Number(req.query.round) : undefined;
     const rows = await prisma.claim.findMany({
-      where: { sessionId: req.params.id },
+      where: { sessionId: req.params.id, ...(roundParam ? { roundNumber: roundParam } : {}) },
       orderBy: { declaredAt: 'asc' }
     });
     const claims = rows.map(r => ({
@@ -350,6 +351,8 @@ app.get('/sessions/:id/claims', async (req,res)=>{
       clientHasBingo: r.clientHasBingo,
       serverCheck: r.serverCheck as 'valid'|'invalid'|'unknown',
       declaredAt: new Date(r.declaredAt).getTime(),
+      roundNumber: r.roundNumber,
+      roundRule: r.roundRule
     }));
     res.json({ count: claims.length, claims });
   } catch (e:any) {
@@ -357,6 +360,7 @@ app.get('/sessions/:id/claims', async (req,res)=>{
     res.status(500).json({ error: 'list_fail' });
   }
 });
+
 
 // ===== listen =====
 const port = Number(process.env.PORT || 10000);
