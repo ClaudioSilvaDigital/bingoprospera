@@ -365,7 +365,4 @@ app.get('/sessions/:id/claims', async (req, res) => {
 // ===== listen =====
 const port = Number(process.env.PORT || 10000);
 app.listen(port, () => {
-  console.log(`API listening on :${port}`);
-});
-}
-});
+  console.log(`API listening on :${port}`));
