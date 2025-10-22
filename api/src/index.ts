@@ -186,7 +186,7 @@ app.get('/sessions/:id/state', (req,res)=>{
   const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
   res.json({ id: s.id, rows: s.rows, cols: s.cols, win: s.win, draws: s.draws, termsCount: s.terms.length });
 });
-
+  
 app.get('/sessions/:id/round', async (req, res) => {
   const s = SESS[req.params.id]; 
   if (!s) return res.status(404).json({ error: 'not found' });
@@ -209,6 +209,51 @@ app.get('/sessions/:id/round', async (req, res) => {
   }
   res.json(m);
 });
+
+  // GET rodada atual
+app.get('/sessions/:id/round', async (req,res)=>{
+  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
+  // tenta memória primeiro
+  let m = ACTIVE_ROUND[req.params.id];
+  if (!m) {
+    const r = await prisma.round.findFirst({ where: { sessionId: req.params.id, isActive: true }, orderBy: { number: 'desc' } });
+    if (r) m = ACTIVE_ROUND[req.params.id] = { number: r.number, rule: r.rule as any };
+    else { // fallback criar #1 se inexistente
+      m = ACTIVE_ROUND[req.params.id] = { number: 1, rule: '1-linha' };
+      await prisma.round.create({ data: { sessionId: req.params.id, number: 1, rule: '1-linha', isActive: true }});
+    }
+  }
+  res.json(m);
+});
+
+// POST iniciar nova rodada (incrementa number e define rule)
+app.post('/sessions/:id/round/start', async (req,res)=>{
+  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
+  const schema = z.object({ rule: z.enum(['1-linha','2-linhas','cheia']).default('1-linha') });
+  const parsed = schema.safeParse(req.body); if(!parsed.success) return res.status(400).json(parsed.error);
+  const current = await prisma.round.findFirst({ where: { sessionId: req.params.id, isActive: true }, orderBy: { number: 'desc' } });
+  const nextNum = (current?.number ?? 0) + 1;
+
+  if (current) {
+    await prisma.round.update({ where: { sessionId_number: { sessionId: req.params.id, number: current.number }}, data: { isActive: false, endedAt: new Date() }});
+  }
+  await prisma.round.create({ data: { sessionId: req.params.id, number: nextNum, rule: parsed.data.rule, isActive: true }});
+  ACTIVE_ROUND[req.params.id] = { number: nextNum, rule: parsed.data.rule };
+  res.status(201).json(ACTIVE_ROUND[req.params.id]);
+});
+
+// POST alterar regra da rodada atual (sem encerrar a rodada)
+app.post('/sessions/:id/round/rule', async (req,res)=>{
+  const s = SESS[req.params.id]; if(!s) return res.status(404).json({error:'not found'});
+  const schema = z.object({ rule: z.enum(['1-linha','2-linhas','cheia']) });
+  const parsed = schema.safeParse(req.body); if(!parsed.success) return res.status(400).json(parsed.error);
+  const r = await prisma.round.findFirst({ where: { sessionId: req.params.id, isActive: true }, orderBy: { number: 'desc' }});
+  if (!r) return res.status(404).json({error:'no-active-round'});
+  await prisma.round.update({ where: { sessionId_number: { sessionId: req.params.id, number: r.number }}, data: { rule: parsed.data.rule }});
+  ACTIVE_ROUND[req.params.id] = { number: r.number, rule: parsed.data.rule };
+  res.json(ACTIVE_ROUND[req.params.id]);
+});
+
  
 // ===== Claims — persistência em Postgres (Prisma) =====
 
