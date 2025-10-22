@@ -107,18 +107,41 @@ function HomeScreen() {
 
           <pre className="mt-4 text-sm bg-gray-50 rounded-xl p-3 border border-gray-100">{log || "—"}</pre>
 
-          {sessionId && (
-            <div className="mt-6 space-y-2">
-              <div className="text-sm">URL Jogadores:</div>
-              <a className="text-prospera-primary underline break-all" href={`/#/play/${sessionId}`}>
-                {fullPlayerLink}
-              </a>
-              <div className="text-sm mt-2">URL Gestão:</div>
-              <a className="text-prospera-primary underline break-all" href={`/#/admin/${sessionId}`}>
-                {fullAdminLink}
-              </a>
-            </div>
-          )}
+{sessionId && (
+  <section className="card p-4 md:p-5 mt-6 bg-green-50 border border-green-200 rounded-xl shadow-sm">
+    <h3 className="text-xl font-semibold text-green-800 mb-3">Boas Práticas</h3>
+    <p className="text-gray-700 mb-4">
+      Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
+    </p>
+
+    <div className="flex flex-col items-center gap-3">
+      <QRCodeCanvas
+        value={
+          typeof window !== "undefined"
+            ? `${window.location.origin}/#/play/${sessionId}`
+            : `/#/play/${sessionId}`
+        }
+        size={180}
+        bgColor="#ffffff"
+        fgColor="#166534"   // verde Prospera
+        level="H"
+        includeMargin={true}
+      />
+
+      <p className="text-sm text-gray-600 text-center break-all">
+        Ou acesse:&nbsp;
+        <a
+          href={`/#/play/${sessionId}`}
+          className="text-green-700 underline"
+        >
+          {typeof window !== "undefined"
+            ? `${window.location.origin}/#/play/${sessionId}`
+            : `/#/play/${sessionId}`}
+        </a>
+      </p>
+    </div>
+  </section>
+)}
         </section>
 
         <section className="card p-6">
