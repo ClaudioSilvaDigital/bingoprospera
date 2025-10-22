@@ -338,6 +338,7 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
 }
 
 /* =============== ADMIN =============== */
+
 function AdminScreen({ sessionId }: { sessionId: string }) {
   const [claims, setClaims] = useState<any[]>([]);
   const [selected, setSelected] = useState<any | null>(null);
@@ -345,14 +346,22 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string>("");
 
+  // NOVO: estado de rodada
+  const [round, setRound] = useState<{ number: number; rule: '1-linha' | '2-linhas' | 'cheia' } | null>(null);
+
+  // === Polling: state + claims + round ===
   useEffect(() => {
     let t: any;
     const tick = async () => {
       try {
-        const [r1, r2] = await Promise.all([
+        const [r1, r2, r3] = await Promise.all([
           fetch(`${API_BASE}/sessions/${sessionId}/state`),
+          // Se quiser filtrar apenas pela rodada atual, troque a linha abaixo por:
+          // fetch(`${API_BASE}/sessions/${sessionId}/claims?round=${round?.number ?? ''}`)
           fetch(`${API_BASE}/sessions/${sessionId}/claims`),
+          fetch(`${API_BASE}/sessions/${sessionId}/round`),
         ]);
+
         if (r1.ok) {
           const s = await r1.json();
           setState({ draws: s.draws || [], rows: s.rows, cols: s.cols });
@@ -365,13 +374,18 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
             setSelected(firstValid || d.claims[0]);
           }
         }
-      } catch (e: any) {
+        if (r3.ok) {
+          const rr = await r3.json();
+          setRound(rr);
+        }
+      } catch (e) {
         setErr("Falha ao atualizar painel.");
       }
       t = setTimeout(tick, 3000);
     };
     tick();
     return () => { if (t) clearTimeout(t); };
+    // se optar por filtrar claims por rodada, acrescente round?.number na lista de dependências
   }, [sessionId]);
 
   async function drawNext() {
@@ -379,10 +393,45 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
     try {
       const r = await fetch(`${API_BASE}/sessions/${sessionId}/draw/next`, { method: "POST" });
       if (!r.ok) throw new Error(await r.text());
-    } catch (e:any) {
+    } catch (e: any) {
       setErr(e.message || "Erro ao sortear");
     } finally {
       setBusy(false);
+    }
+  }
+
+  // NOVO: trocar regra da rodada atual
+  async function changeRule(rule: '1-linha' | '2-linhas' | 'cheia') {
+    setErr("");
+    try {
+      const r = await fetch(`${API_BASE}/sessions/${sessionId}/round/rule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const rr = await fetch(`${API_BASE}/sessions/${sessionId}/round`);
+      if (rr.ok) setRound(await rr.json());
+    } catch (e: any) {
+      setErr(e.message || "Erro ao alterar regra");
+    }
+  }
+
+  // NOVO: iniciar nova rodada (incrementa número, mantém regra escolhida)
+  async function startNewRound() {
+    setErr("");
+    try {
+      const rule = round?.rule ?? '1-linha';
+      const r = await fetch(`${API_BASE}/sessions/${sessionId}/round/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const rr = await fetch(`${API_BASE}/sessions/${sessionId}/round`);
+      if (rr.ok) setRound(await rr.json());
+    } catch (e: any) {
+      setErr(e.message || "Erro ao iniciar nova rodada");
     }
   }
 
@@ -391,63 +440,113 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="min-h-full">
-
+      <header className="bg-white/70 backdrop-blur sticky top-0 border-b border-gray-100">
+        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center gap-3">
+          <div className="size-9 rounded-xl bg-prospera-primary/10 flex items-center justify-center">
+            <span className="text-prospera-primary font-black">P</span>
+          </div>
+          <div className="font-bold">Prospera Bingo • Gestão</div>
+          <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
+        </div>
+      </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-[380px_1fr] gap-6">
-        <div className="flex items-center gap-3 flex-wrap mb-1">
-          <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">Sorteios: <b>{totalDraws}</b></span>
-          <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">Declarações: <b>{claims.length}</b> (válidas: <b>{validCount}</b>)</span>
+        {/* Barra de controles (contadores + rodada + sorteio) */}
+        <div className="flex items-center gap-3 flex-wrap mb-1 md:col-span-2">
+          <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">
+            Sorteios: <b>{totalDraws}</b>
+          </span>
+          <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">
+            Declarações: <b>{claims.length}</b> (válidas: <b>{validCount}</b>)
+          </span>
+
+          {/* NOVO: status de rodada */}
+          <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">
+            Rodada: <b>{round?.number ?? '-'}</b> • Regra:&nbsp;
+            <b>{round?.rule ?? '-'}</b>
+          </span>
+
+          {/* NOVO: seletor de regra */}
+          <label className="text-sm flex items-center gap-2">
+            Regra:
+            <select
+              className="border border-gray-300 rounded-xl px-2 py-1"
+              value={round?.rule ?? '1-linha'}
+              onChange={(e) => changeRule(e.target.value as any)}
+            >
+              <option value="1-linha">1 linha</option>
+              <option value="2-linhas">2 linhas</option>
+              <option value="cheia">Cartela cheia</option>
+            </select>
+          </label>
+
+          {/* NOVO: iniciar nova rodada */}
+          <button onClick={startNewRound} className="btn">
+            Iniciar nova rodada
+          </button>
+
           <button onClick={drawNext} disabled={busy} className="btn ml-auto">
             {busy ? "Sorteando..." : "Sortear próximo"}
           </button>
         </div>
-        {err && <div className="text-red-600 mb-2">{err}</div>}
 
-        <section className="card p-4 md:p-5 overflow-hidden">
+        {err && <div className="text-red-600 mb-2 md:col-span-2">{err}</div>}
+
+        {/* Coluna esquerda: Declarações */}
+        <section className="card p-4 md:p-5">
           <h3 className="h2 mb-3">Declarações</h3>
           <div className="grid gap-3 max-h-[520px] overflow-y-auto pr-1">
-            {claims.map((c:any)=>(
-              <button key={c.id}
-                onClick={()=>setSelected(c)}
+            {claims.map((c: any) => (
+              <button
+                key={c.id}
+                onClick={() => setSelected(c)}
                 className={[
                   "text-left p-3 rounded-xl border transition",
-                  selected?.id===c.id ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200 hover:bg-gray-50"
+                  selected?.id === c.id ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200 hover:bg-gray-50"
                 ].join(" ")}
               >
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">{c.playerName}</span>
                   <span className={[
                     "text-xs px-2 py-1 rounded-md",
-                    c.serverCheck==="valid" ? "bg-emerald-100 text-emerald-800" :
-                    c.serverCheck==="invalid" ? "bg-red-100 text-red-800" :
+                    c.serverCheck === "valid" ? "bg-emerald-100 text-emerald-800" :
+                    c.serverCheck === "invalid" ? "bg-red-100 text-red-800" :
                     "bg-gray-100 text-gray-700"
                   ].join(" ")}>{c.serverCheck}</span>
                 </div>
-                <div className="text-xs text-gray-600">{new Date(c.declaredAt).toLocaleTimeString()}</div>
+                {/* NOVO: info da rodada na declaração */}
+                <div className="text-xs text-gray-600">
+                  R#{c.roundNumber ?? "?"} • {c.roundRule ?? "-"} • {new Date(c.declaredAt).toLocaleTimeString()}
+                </div>
               </button>
             ))}
             {!claims.length && <div className="text-gray-600 text-sm">Nenhuma declaração ainda.</div>}
           </div>
         </section>
 
-        <section className="card p-4 md:p-5 md:col-span-2">
+        {/* Coluna direita: Cartela + Últimos sorteios */}
+        <section className="card p-4 md:p-5">
           <h3 className="h2 mb-3">Cartela</h3>
           {!selected && <div className="text-gray-600">Selecione uma declaração ao lado.</div>}
           {selected && <ClaimBoard claim={selected} />}
+
           <div className="mt-4">
             <h4 className="font-semibold mb-2 text-gray-800">Últimos sorteios</h4>
             <div className="flex flex-wrap gap-2">
-              {(state?.draws || []).slice(-24).reverse().map((d:any)=>(
+              {(state?.draws || []).slice(-24).reverse().map((d: any) => (
                 <span key={d.index} className="px-3 py-1 rounded-xl border border-gray-200 bg-white text-sm">{d.text}</span>
               ))}
               {!state?.draws?.length && <span className="text-gray-600 text-sm">Ainda não há sorteios.</span>}
             </div>
           </div>
         </section>
+
+        {/* Se quiser que a Cartela ocupe as duas colunas, troque a section acima por: className="card p-4 md:p-5 md:col-span-2" */}
       </main>
     </div>
   );
 }
+
 
 function ClaimBoard({ claim }: { claim: any }) {
   const layout: string[][] = claim.layout;
