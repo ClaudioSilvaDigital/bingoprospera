@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
-/* ==== Wake Lock types (compat, sem conflitar com lib.dom) ==== */
+// —— Wake Lock types (compat) — não sobrescrever addEventListener —— 
 declare global {
   interface WakeLockSentinel {
     readonly released: boolean;
     release: () => Promise<void>;
-    addEventListener?: (type: "release", listener: () => void) => void;
   }
   interface Navigator {
     wakeLock?: {
@@ -441,7 +440,9 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
     try {
       const sent = await navigator.wakeLock.request("screen");
       setWakeLock(sent);
-      sent.addEventListener?.("release", () => setWakeLock(null));
+      // algumas implementações expõem 'onrelease' ou 'addEventListener'
+((sent as any).addEventListener)?.("release", () => setWakeLock(null));
+
     } catch (e) {
       console.warn("wake lock request failed", e);
       setWakeLock(null);
