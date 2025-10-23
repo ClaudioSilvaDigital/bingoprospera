@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
-// —— Wake Lock types (compat) ——
+/* ==== Wake Lock types (compat, sem conflitar com lib.dom) ==== */
 declare global {
   interface WakeLockSentinel {
-    released: boolean;
+    readonly released: boolean;
     release: () => Promise<void>;
+    addEventListener?: (type: "release", listener: () => void) => void;
   }
   interface Navigator {
     wakeLock?: {
@@ -14,7 +15,6 @@ declare global {
   }
 }
 
-
 const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
 const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http://localhost:10000";
 
@@ -22,7 +22,7 @@ type Route =
   | { name: "home" }
   | { name: "play"; sessionId: string }
   | { name: "admin"; sessionId: string }
-  | { name: "score";  sessionId: string };
+  | { name: "score"; sessionId: string };
 
 function useHashRoute(): Route {
   const [hash, setHash] = useState<string>(typeof window !== "undefined" ? window.location.hash : "");
@@ -38,7 +38,7 @@ function useHashRoute(): Route {
   m = hash.match(/^#\/play\/([A-Za-z0-9_-]{4,})$/);
   if (m) return { name: "play", sessionId: m[1] };
 
-  m = hash.match(/^#\/score\/([A-Za-z0-9_-]{4,})$/); // NOVO
+  m = hash.match(/^#\/score\/([A-Za-z0-9_-]{4,})$/);
   if (m) return { name: "score", sessionId: m[1] };
 
   return { name: "home" };
@@ -47,11 +47,10 @@ function useHashRoute(): Route {
 export default function Root() {
   const route = useHashRoute();
   if (route.name === "admin") return <AdminScreen sessionId={route.sessionId} />;
-  if (route.name === "play")  return <PlayScreen  sessionId={route.sessionId} />;
-  if (route.name === "score") return <ScoreScreen sessionId={route.sessionId} />; // NOVO
+  if (route.name === "play") return <PlayScreen sessionId={route.sessionId} />;
+  if (route.name === "score") return <ScoreScreen sessionId={route.sessionId} />;
   return <HomeScreen />;
 }
-
 
 /* =============== HOME =============== */
 function HomeScreen() {
@@ -60,17 +59,15 @@ function HomeScreen() {
   const [cols, setCols] = useState(6);
   const [log, setLog] = useState<string>("");
 
-  // <<< calcule URLs uma vez por sessão >>>
-  const { origin, playerHref, adminHref, playerUrl, adminUrl } = useMemo(() => {
+  const { playerHref, adminHref, playerUrl, adminUrl } = useMemo(() => {
     const o = typeof window !== "undefined" ? window.location.origin : "";
     const pHref = sessionId ? `/#/play/${sessionId}` : "";
     const aHref = sessionId ? `/#/admin/${sessionId}` : "";
     return {
-      origin: o,
       playerHref: pHref,
       adminHref: aHref,
       playerUrl: o && pHref ? `${o}${pHref}` : pHref,
-      adminUrl:  o && aHref ? `${o}${aHref}` : aHref,
+      adminUrl: o && aHref ? `${o}${aHref}` : aHref,
     };
   }, [sessionId]);
 
@@ -94,10 +91,7 @@ function HomeScreen() {
 
   return (
     <div className="min-h-full">
-      {/* ... seu header global já está no _app.tsx ... */}
-
       <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-2 gap-8">
-        {/* Bloco principal de criação da sessão (inalterado) */}
         <section className="card p-6">
           <h1 className="h1 mb-2">Criar Sessão</h1>
           <p className="subtle mb-6">Defina o tamanho da cartela e comece o sorteio.</p>
@@ -106,23 +100,31 @@ function HomeScreen() {
             <label className="text-sm">
               Linhas
               <input
-                type="number" min={3} max={12}
-                value={rows} onChange={(e) => setRows(Number(e.target.value))}
+                type="number"
+                min={3}
+                max={12}
+                value={rows}
+                onChange={(e) => setRows(Number(e.target.value))}
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-prospera-accent"
               />
             </label>
             <label className="text-sm">
               Colunas
               <input
-                type="number" min={3} max={12}
-                value={cols} onChange={(e) => setCols(Number(e.target.value))}
+                type="number"
+                min={3}
+                max={12}
+                value={cols}
+                onChange={(e) => setCols(Number(e.target.value))}
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-prospera-accent"
               />
             </label>
           </div>
 
           <div className="mt-6 flex gap-3">
-            <button onClick={createSession} className="btn">Criar sessão</button>
+            <button onClick={createSession} className="btn">
+              Criar sessão
+            </button>
             <button onClick={drawNext} disabled={!sessionId} className="btn-secondary disabled:opacity-60">
               Sortear próximo
             </button>
@@ -131,25 +133,15 @@ function HomeScreen() {
           <pre className="mt-4 text-sm bg-gray-50 rounded-xl p-3 border border-gray-100">{log || "—"}</pre>
         </section>
 
-        {/* Boas práticas + QR (Jogadores) */}
         <section className="card p-6">
           <h2 className="h2 mb-2">Boas práticas</h2>
           {!sessionId && <p className="subtle">Crie uma sessão para gerar o QR Code dos jogadores.</p>}
 
           {sessionId && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 shadow-soft">
-              <p className="text-gray-700 mb-4">
-                Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:
-              </p>
+              <p className="text-gray-700 mb-4">Peça aos jogadores que escaneiem o QR Code abaixo para entrar na sessão:</p>
               <div className="flex flex-col items-center gap-3">
-                <QRCodeCanvas
-                  value={playerUrl}
-                  size={180}
-                  bgColor="#ffffff"
-                  fgColor="#166534"
-                  level="H"
-                  includeMargin
-                />
+                <QRCodeCanvas value={playerUrl} size={180} bgColor="#ffffff" fgColor="#166534" level="H" includeMargin />
                 <p className="text-sm text-gray-600 text-center break-all">
                   Ou acesse:&nbsp;
                   <a href={playerHref} className="text-green-700 underline">
@@ -160,7 +152,6 @@ function HomeScreen() {
             </div>
           )}
 
-          {/* Link da gestão (sempre visível quando há sessão) */}
           {sessionId && (
             <div className="card p-4 mt-4">
               <h4 className="text-base font-semibold text-gray-800 mb-2">Link da gestão (Admin)</h4>
@@ -189,7 +180,6 @@ function HomeScreen() {
   );
 }
 
-
 /* =============== PLAY =============== */
 function PlayScreen({ sessionId }: { sessionId: string }) {
   const [name, setName] = useState("Jogador");
@@ -201,23 +191,23 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
 
   const keyRC = (r: number, c: number) => `${r},${c}`;
 
-  // === Rodada atual (número e regra) ===
-const [round, setRound] = useState<{ number:number; rule:'1-linha'|'2-linhas'|'3-linhas'|'cheia'}|null>(null);
+  // Rodada atual (número e regra)
+  const [round, setRound] = useState<{ number: number; rule: "1-linha" | "2-linhas" | "3-linhas" | "cheia" } | null>(null);
 
-
-useEffect(() => {
-  let t: any;
-  const tick = async () => {
-    try {
-      const r = await fetch(`${API_BASE}/sessions/${sessionId}/round`);
-      if (r.ok) setRound(await r.json());
-    } catch {}
-    t = setTimeout(tick, 4000);
-  };
-  tick();
-  return () => { if (t) clearTimeout(t); };
-}, [sessionId]);
-
+  useEffect(() => {
+    let t: any;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/sessions/${sessionId}/round`);
+        if (r.ok) setRound(await r.json());
+      } catch {}
+      t = setTimeout(tick, 4000);
+    };
+    tick();
+    return () => {
+      if (t) clearTimeout(t);
+    };
+  }, [sessionId]);
 
   async function join() {
     setError("");
@@ -236,76 +226,6 @@ useEffect(() => {
     }
   }
 
-  async function enterFullscreen() {
-    try {
-      await document.documentElement.requestFullscreen();
-    } catch (e) {
-      console.error("fullscreen error", e);
-    }
-  }
-
-  async function exitFullscreen() {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-    } catch (e) {
-      console.error("exit fullscreen error", e);
-    }
-  }
-
-  function toggleFullscreen() {
-    if (isFullscreen) exitFullscreen();
-    else enterFullscreen();
-  }
-
-    async function requestWake() {
-    if (!navigator.wakeLock) return;
-    try {
-      const sent = await navigator.wakeLock.request("screen");
-      setWakeLock(sent);
-
-      // Se o Wake Lock for liberado pelo SO, tentamos readquirir ao voltar o foco
-      sent.addEventListener?.("release", () => {
-        setWakeLock(null);
-      });
-    } catch (e) {
-      console.warn("wake lock request failed", e);
-      setWakeLock(null);
-    }
-  }
-
-  async function releaseWake() {
-    try {
-      if (wakeLock) {
-        await wakeLock.release();
-      }
-    } catch (e) {
-      console.warn("wake lock release failed", e);
-    } finally {
-      setWakeLock(null);
-    }
-  }
-
-  function toggleWake() {
-    if (wakeLock) releaseWake();
-    else requestWake();
-  }
-
-    // Requisita novamente o Wake Lock quando a aba volta a ficar visível
-  useEffect(() => {
-    if (!navigator.wakeLock) return;
-    const onVisibility = () => {
-      if (document.visibilityState === "visible" && wakeLock) {
-        // Se tínhamos um wakeLock antes, tentamos readquirir.
-        requestWake();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wakeLock]);
-
-
-  
   useEffect(() => {
     let t: any;
     const tick = async () => {
@@ -320,7 +240,9 @@ useEffect(() => {
       t = setTimeout(tick, 2000);
     };
     tick();
-    return () => { if (t) clearTimeout(t); };
+    return () => {
+      if (t) clearTimeout(t);
+    };
   }, [sessionId]);
 
   function toggleMark(r: number, c: number) {
@@ -328,9 +250,10 @@ useEffect(() => {
     const term = layout[r][c];
     if (!drawn.has(term)) return;
     const k = keyRC(r, c);
-    setMarks(prev => {
+    setMarks((prev) => {
       const n = new Set(prev);
-      if (n.has(k)) n.delete(k); else n.add(k);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
       return n;
     });
   }
@@ -340,20 +263,30 @@ useEffect(() => {
     const C = grid.cols || (layout[0]?.length || 0);
     if (R === 0 || C === 0) return false;
     for (let r = 0; r < R; r++) {
-      let ok = true; for (let c = 0; c < C; c++) if (!marks.has(keyRC(r, c))) { ok = false; break; }
+      let ok = true;
+      for (let c = 0; c < C; c++) if (!marks.has(keyRC(r, c))) { ok = false; break; }
       if (ok) return true;
     }
     for (let c = 0; c < C; c++) {
-      let ok = true; for (let r = 0; r < R; r++) if (!marks.has(keyRC(r, r === r ? c : c))) { ok = false; break; } // mantém simples
+      let ok = true;
+      for (let r = 0; r < R; r++) if (!marks.has(keyRC(r, c))) { ok = false; break; }
       if (ok) return true;
     }
-    { let ok = true; for (let i = 0; i < Math.min(R, C); i++) if (!marks.has(keyRC(i, i))) { ok = false; break; } if (ok) return true; }
-    { let ok = true; for (let i = 0; i < Math.min(R, C); i++) if (!marks.has(keyRC(i, C - 1 - i))) { ok = false; break; } if (ok) return true; }
+    {
+      let ok = true;
+      for (let i = 0; i < Math.min(R, C); i++) if (!marks.has(keyRC(i, i))) { ok = false; break; }
+      if (ok) return true;
+    }
+    {
+      let ok = true;
+      for (let i = 0; i < Math.min(R, C); i++) if (!marks.has(keyRC(i, C - 1 - i))) { ok = false; break; }
+      if (ok) return true;
+    }
     return false;
   }
 
   async function claim() {
-    const marksArr: Array<[number, number]> = Array.from(marks).map(k => {
+    const marksArr: Array<[number, number]> = Array.from(marks).map((k) => {
       const [r, c] = k.split(",").map(Number);
       return [r, c] as [number, number];
     });
@@ -371,9 +304,7 @@ useEffect(() => {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error || `Falha: ${r.status}`);
-      alert(data?.claim?.serverCheck === "valid"
-        ? "Bingo! (validado no servidor)"
-        : "Grito recebido, a mesa irá revisar.");
+      alert(data?.claim?.serverCheck === "valid" ? "Bingo! (validado no servidor)" : "Grito recebido, a mesa irá revisar.");
     } catch (e: any) {
       alert(e.message || "Erro ao declarar bingo");
     }
@@ -383,7 +314,6 @@ useEffect(() => {
 
   return (
     <div className="min-h-full">
-
       <main className="mx-auto max-w-6xl px-4 py-8 grid gap-8">
         {!layout.length && (
           <section className="card p-6">
@@ -398,7 +328,9 @@ useEffect(() => {
               />
             </label>
             <div className="mt-4 flex gap-3">
-              <button onClick={join} className="btn">Entrar</button>
+              <button onClick={join} className="btn">
+                Entrar
+              </button>
               {error && <div className="text-red-600 text-sm">{error}</div>}
             </div>
             <p className="subtle mt-4">Dica: células só podem ser marcadas quando o termo for sorteado.</p>
@@ -408,8 +340,8 @@ useEffect(() => {
         {cols > 0 && (
           <section className="card p-4 md:p-6">
             <div className="text-sm text-gray-700 mb-2">
-  Rodada #{round?.number ?? '-'} — Regra: <b>{round?.rule ?? '-'}</b>
-</div>
+              Rodada #{round?.number ?? "-"} — Regra: <b>{round?.rule ?? "-"}</b>
+            </div>
 
             <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
               {layout.map((row, r) =>
@@ -427,8 +359,8 @@ useEffect(() => {
                         isMarked
                           ? "bg-emerald-100 border-emerald-300"
                           : isDrawn
-                            ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
-                            : "bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed"
+                          ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
+                          : "bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed",
                       ].join(" ")}
                       title={!isDrawn ? "Aguarde o sorteio deste termo" : "Marcar/Desmarcar"}
                     >
@@ -440,51 +372,16 @@ useEffect(() => {
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <span className="subtle">Sorteados: <b>{drawn.size}</b></span>
-              <span className="subtle">• Marcas: <b>{marks.size}</b></span>
-              <button onClick={claim} className="btn ml-auto">Gritar BINGO!</button>
+              <span className="subtle">
+                Sorteados: <b>{drawn.size}</b>
+              </span>
+              <span className="subtle">
+                • Marcas: <b>{marks.size}</b>
+              </span>
+              <button onClick={claim} className="btn ml-auto">
+                Gritar BINGO!
+              </button>
             </div>
-
-
-      <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
-        <div className="text-2xl font-black tracking-wide">Prospera Bingo • Placar</div>
-        <div className="ml-auto flex items-center gap-3">
-          <div className="text-lg">
-            Sessão <span className="font-mono bg-white/10 px-2 py-1 rounded">{sessionId}</span>
-          </div>
-
-          {/* —— Botão Tela Cheia —— */}
-          <button
-            onClick={toggleFullscreen}
-            className="px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 transition text-sm"
-            title={isFullscreen ? "Sair de tela cheia (Esc)" : "Entrar em tela cheia"}
-          >
-            {isFullscreen ? "Sair Tela Cheia" : "Tela Cheia"}
-          </button>
-
-          {/* —— Botão Wake Lock (bloqueio de sono) —— */}
-          <button
-            onClick={toggleWake}
-            disabled={!wakeSupported}
-            className={[
-              "px-3 py-2 rounded-lg border transition text-sm",
-              wakeSupported
-                ? (wakeLock ? "border-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/25"
-                             : "border-white/20 bg-white/10 hover:bg-white/15")
-                : "border-white/10 bg-white/5 opacity-50 cursor-not-allowed"
-            ].join(" ")}
-            title={
-              wakeSupported
-                ? (wakeLock ? "Liberar bloqueio de sono" : "Impedir que a tela apague")
-                : "Wake Lock não suportado neste dispositivo/navegador"
-            }
-          >
-            {wakeLock ? "Manter Acordo: ON" : "Manter Acordo: OFF"}
-          </button>
-        </div>
-      </header>
-
-            
           </section>
         )}
       </main>
@@ -495,38 +392,89 @@ useEffect(() => {
   );
 }
 
+/* =============== SCORE (placar público) =============== */
 function ScoreScreen({ sessionId }: { sessionId: string }) {
   const [state, setState] = useState<{ draws: any[]; rows: number; cols: number } | null>(null);
-  const [round, setRound] = useState<{ number: number; rule: '1-linha'|'2-linhas'|'3-linhas'|'cheia' } | null>(null);
+  const [round, setRound] = useState<{ number: number; rule: "1-linha" | "2-linhas" | "3-linhas" | "cheia" } | null>(null);
   const [stats, setStats] = useState<{
-    winnersByRound: Record<number, Array<{ playerId: string; playerName: string; declaredAt: number; roundRule: string | null }>>;
+    winnersByRound: Record<
+      number,
+      Array<{ playerId: string; playerName: string; declaredAt: number; roundRule: string | null }>
+    >;
     leaderboard: Array<{ playerId: string; playerName: string; wins: number }>;
   } | null>(null);
 
-    // —— Fullscreen & Wake Lock ——
+  // —— Fullscreen & Wake Lock ——
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
   const [wakeSupported, setWakeSupported] = useState<boolean>(false);
 
-    // Suporte a Wake Lock e listener de fullscreen
+  // Suporte a Wake Lock e listener de fullscreen
   useEffect(() => {
     setWakeSupported(!!navigator.wakeLock);
-
-    const onFsChange = () => {
-      const fs =
-        !!document.fullscreenElement ||
-        // webkit/ms prefixes não são necessários na maioria dos browsers modernos,
-        // mas mantemos a checagem padrão.
-        false;
-      setIsFullscreen(fs);
-    };
-
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
-  
+  async function enterFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (e) {
+      console.error("fullscreen error", e);
+    }
+  }
+  async function exitFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch (e) {
+      console.error("exit fullscreen error", e);
+    }
+  }
+  function toggleFullscreen() {
+    if (isFullscreen) exitFullscreen();
+    else enterFullscreen();
+  }
 
+  async function requestWake() {
+    if (!navigator.wakeLock) return;
+    try {
+      const sent = await navigator.wakeLock.request("screen");
+      setWakeLock(sent);
+      sent.addEventListener?.("release", () => setWakeLock(null));
+    } catch (e) {
+      console.warn("wake lock request failed", e);
+      setWakeLock(null);
+    }
+  }
+  async function releaseWake() {
+    try {
+      if (wakeLock) await wakeLock.release();
+    } catch (e) {
+      console.warn("wake lock release failed", e);
+    } finally {
+      setWakeLock(null);
+    }
+  }
+  function toggleWake() {
+    if (wakeLock) releaseWake();
+    else requestWake();
+  }
+
+  // Reaquisição ao voltar a visibilidade
+  useEffect(() => {
+    if (!navigator.wakeLock) return;
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && wakeLock) {
+        requestWake();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wakeLock]);
+
+  // Polling dados do placar
   useEffect(() => {
     let t: any;
     const tick = async () => {
@@ -543,24 +491,53 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
       t = setTimeout(tick, 3000);
     };
     tick();
-    return () => { if (t) clearTimeout(t); };
+    return () => {
+      if (t) clearTimeout(t);
+    };
   }, [sessionId]);
 
   const lastDraws = (state?.draws ?? []).slice(-12);
   const winnersCurrentRound =
-    stats?.winnersByRound && round?.number
-      ? (stats.winnersByRound[round.number] ?? [])
-      : [];
+    stats?.winnersByRound && round?.number ? stats.winnersByRound[round.number] ?? [] : [];
 
-  const playerUrl =
-    (typeof window !== "undefined" ? window.location.origin : "") + `/#/play/${sessionId}`;
+  const playerUrl = (typeof window !== "undefined" ? window.location.origin : "") + `/#/play/${sessionId}`;
 
   return (
     <div className="min-h-screen bg-[#0b1320] text-white">
       <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
         <div className="text-2xl font-black tracking-wide">Prospera Bingo • Placar</div>
-        <div className="ml-auto text-lg">
-          Sessão <span className="font-mono bg-white/10 px-2 py-1 rounded">{sessionId}</span>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="text-lg">
+            Sessão <span className="font-mono bg-white/10 px-2 py-1 rounded">{sessionId}</span>
+          </div>
+          <button
+            onClick={toggleFullscreen}
+            className="px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 transition text-sm"
+            title={isFullscreen ? "Sair de tela cheia (Esc)" : "Entrar em tela cheia"}
+          >
+            {isFullscreen ? "Sair Tela Cheia" : "Tela Cheia"}
+          </button>
+          <button
+            onClick={toggleWake}
+            disabled={!wakeSupported}
+            className={[
+              "px-3 py-2 rounded-lg border transition text-sm",
+              wakeSupported
+                ? wakeLock
+                  ? "border-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/25"
+                  : "border-white/20 bg-white/10 hover:bg-white/15"
+                : "border-white/10 bg-white/5 opacity-50 cursor-not-allowed",
+            ].join(" ")}
+            title={
+              wakeSupported
+                ? wakeLock
+                  ? "Liberar bloqueio de sono"
+                  : "Impedir que a tela apague"
+                : "Wake Lock não suportado neste dispositivo/navegador"
+            }
+          >
+            {wakeLock ? "Manter Acordo: ON" : "Manter Acordo: OFF"}
+          </button>
         </div>
       </header>
 
@@ -573,7 +550,7 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
                 "1-linha": "1 linha",
                 "2-linhas": "2 linhas",
                 "3-linhas": "3 linhas",
-                "cheia": "Cartela cheia"
+                cheia: "Cartela cheia",
               }[round?.rule ?? "1-linha"]}
             </b>
           </div>
@@ -581,16 +558,14 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
           <div className="rounded-2xl bg-white/5 p-4 border border-white/10">
             <div className="text-white/70 text-sm mb-2">Últimos sorteios</div>
             <div className="flex flex-wrap gap-3">
-              {lastDraws.map((d, idx) => {
+              {lastDraws.map((d: any, idx: number) => {
                 const isLast = idx === lastDraws.length - 1;
                 return (
                   <div
                     key={d.index}
                     className={[
                       "px-4 py-2 rounded-xl border",
-                      isLast
-                        ? "bg-emerald-500/20 border-emerald-400 text-emerald-100 animate-pulse"
-                        : "bg-white/5 border-white/15 text-white"
+                      isLast ? "bg-emerald-500/20 border-emerald-400 text-emerald-100 animate-pulse" : "bg-white/5 border-white/15 text-white",
                     ].join(" ")}
                     style={{ fontSize: isLast ? 28 : 22, fontWeight: 700 }}
                   >
@@ -598,9 +573,7 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
                   </div>
                 );
               })}
-              {!lastDraws.length && (
-                <div className="text-white/60">Ainda não há sorteios.</div>
-              )}
+              {!lastDraws.length && <div className="text-white/60">Ainda não há sorteios.</div>}
             </div>
           </div>
 
@@ -630,14 +603,13 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
             <div className="bg-white p-3 rounded-xl">
               <QRCodeCanvas value={playerUrl} size={220} />
             </div>
-            <a
-              href={playerUrl}
-              className="mt-3 text-emerald-300 underline break-all text-center"
-            >
+            <a href={playerUrl} className="mt-3 text-emerald-300 underline break-all text-center">
               {playerUrl}
             </a>
             <div className="mt-4 text-white/60 text-sm text-center">
-              Aponte a câmera do celular para o QR Code<br/>ou acesse o link acima.
+              Aponte a câmera do celular para o QR Code
+              <br />
+              ou acesse o link acima.
             </div>
           </div>
 
@@ -667,36 +639,31 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
   );
 }
 
-
 /* =============== ADMIN =============== */
-
 function AdminScreen({ sessionId }: { sessionId: string }) {
   const [claims, setClaims] = useState<any[]>([]);
   const [selected, setSelected] = useState<any | null>(null);
   const [state, setState] = useState<{ draws: any[]; rows: number; cols: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string>("");
-const [stats, setStats] = useState<{
-  totals: { roundsCount: number; uniquePlayersWithWin: number; validClaims: number };
-  winnersByRound: Record<number, Array<{ playerId: string; playerName: string; declaredAt: number; roundRule: string | null }>>;
-  leaderboard: Array<{ playerId: string; playerName: string; wins: number }>;
-} | null>(null);
+  const [stats, setStats] = useState<{
+    totals: { roundsCount: number; uniquePlayersWithWin: number; validClaims: number };
+    winnersByRound: Record<number, Array<{ playerId: string; playerName: string; declaredAt: number; roundRule: string | null }>>;
+    leaderboard: Array<{ playerId: string; playerName: string; wins: number }>;
+  } | null>(null);
 
-  // NOVO: estado de rodada
-  const [round, setRound] = useState<{ number: number; rule: '1-linha'|'2-linhas'|'3-linhas'|'cheia' } | null>(null);
+  const [round, setRound] = useState<{ number: number; rule: "1-linha" | "2-linhas" | "3-linhas" | "cheia" } | null>(null);
 
-
-  // === Polling: state + claims + round ===
   useEffect(() => {
     let t: any;
     const tick = async () => {
       try {
-const [r1, r2, r3, r4] = await Promise.all([
-  fetch(`${API_BASE}/sessions/${sessionId}/state`),
-  fetch(`${API_BASE}/sessions/${sessionId}/claims`),
-  fetch(`${API_BASE}/sessions/${sessionId}/round`),
-  fetch(`${API_BASE}/sessions/${sessionId}/stats`), 
-]);
+        const [r1, r2, r3, r4] = await Promise.all([
+          fetch(`${API_BASE}/sessions/${sessionId}/state`),
+          fetch(`${API_BASE}/sessions/${sessionId}/claims`),
+          fetch(`${API_BASE}/sessions/${sessionId}/round`),
+          fetch(`${API_BASE}/sessions/${sessionId}/stats`),
+        ]);
 
         if (r1.ok) {
           const s = await r1.json();
@@ -714,18 +681,23 @@ const [r1, r2, r3, r4] = await Promise.all([
           const rr = await r3.json();
           setRound(rr);
         }
-      } catch (e) {
+        if (r4.ok) {
+          setStats(await r4.json());
+        }
+      } catch {
         setErr("Falha ao atualizar painel.");
       }
       t = setTimeout(tick, 3000);
     };
     tick();
-    return () => { if (t) clearTimeout(t); };
-    // se optar por filtrar claims por rodada, acrescente round?.number na lista de dependências
-  }, [sessionId]);
+    return () => {
+      if (t) clearTimeout(t);
+    };
+  }, [sessionId, selected]);
 
   async function drawNext() {
-    setBusy(true); setErr("");
+    setBusy(true);
+    setErr("");
     try {
       const r = await fetch(`${API_BASE}/sessions/${sessionId}/draw/next`, { method: "POST" });
       if (!r.ok) throw new Error(await r.text());
@@ -736,14 +708,13 @@ const [r1, r2, r3, r4] = await Promise.all([
     }
   }
 
-  // NOVO: trocar regra da rodada atual
-  async function changeRule(rule: '1-linha'|'2-linhas'|'3-linhas'|'cheia') {
+  async function changeRule(rule: "1-linha" | "2-linhas" | "3-linhas" | "cheia") {
     setErr("");
     try {
       const r = await fetch(`${API_BASE}/sessions/${sessionId}/round/rule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rule })
+        body: JSON.stringify({ rule }),
       });
       if (!r.ok) throw new Error(await r.text());
       const rr = await fetch(`${API_BASE}/sessions/${sessionId}/round`);
@@ -753,15 +724,14 @@ const [r1, r2, r3, r4] = await Promise.all([
     }
   }
 
-  // NOVO: iniciar nova rodada (incrementa número, mantém regra escolhida)
   async function startNewRound() {
     setErr("");
     try {
-      const rule = round?.rule ?? '1-linha';
+      const rule = round?.rule ?? "1-linha";
       const r = await fetch(`${API_BASE}/sessions/${sessionId}/round/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rule })
+        body: JSON.stringify({ rule }),
       });
       if (!r.ok) throw new Error(await r.text());
       const rr = await fetch(`${API_BASE}/sessions/${sessionId}/round`);
@@ -772,7 +742,7 @@ const [r1, r2, r3, r4] = await Promise.all([
   }
 
   const totalDraws = state?.draws?.length || 0;
-  const validCount = claims.filter(c => c.serverCheck === "valid").length;
+  const validCount = claims.filter((c) => c.serverCheck === "valid").length;
 
   return (
     <div className="min-h-full">
@@ -782,22 +752,23 @@ const [r1, r2, r3, r4] = await Promise.all([
             <span className="text-prospera-primary font-black">P</span>
           </div>
           <div className="font-bold">Prospera Bingo • Gestão</div>
-          <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
-    {/* NOVO: link rápido para o placar (telão) */}
-    <a
-      href={`/#/score/${sessionId}`}
-      target="_blank"
-      rel="noreferrer"
-      className="text-sm text-prospera-primary underline ml-3"
-      title="Abrir placar em outra aba (telão)"
-    >
-      Abrir Placar (telão)
-    </a>
+          <a href="/" className="ml-auto text-sm text-prospera-primary underline">
+            Home
+          </a>
+          {/* Link rápido para o placar (telão) */}
+          <a
+            href={`/#/score/${sessionId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-prospera-primary underline ml-3"
+            title="Abrir placar em outra aba (telão)"
+          >
+            Abrir Placar (telão)
+          </a>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-[380px_1fr] gap-6">
-        {/* Barra de controles (contadores + rodada + sorteio) */}
         <div className="flex items-center gap-3 flex-wrap mb-1 md:col-span-2">
           <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">
             Sorteios: <b>{totalDraws}</b>
@@ -806,20 +777,14 @@ const [r1, r2, r3, r4] = await Promise.all([
             Declarações: <b>{claims.length}</b> (válidas: <b>{validCount}</b>)
           </span>
 
-          {/* NOVO: status de rodada */}
           <span className="px-3 py-2 rounded-xl bg-white border border-gray-200">
-            Rodada: <b>{round?.number ?? '-'}</b> • Regra:&nbsp;
-            <b>{round?.rule ?? '-'}</b>
+            Rodada: <b>{round?.number ?? "-"}</b> • Regra:&nbsp;
+            <b>{round?.rule ?? "-"}</b>
           </span>
 
-          {/* NOVO: seletor de regra */}
           <label className="text-sm flex items-center gap-2">
             Regra:
-            <select
-              className="border border-gray-300 rounded-xl px-2 py-1"
-              value={round?.rule ?? '1-linha'}
-              onChange={(e) => changeRule(e.target.value as any)}
-            >
+            <select className="border border-gray-300 rounded-xl px-2 py-1" value={round?.rule ?? "1-linha"} onChange={(e) => changeRule(e.target.value as any)}>
               <option value="1-linha">1 linha</option>
               <option value="2-linhas">2 linhas</option>
               <option value="3-linhas">3 linhas</option>
@@ -827,7 +792,6 @@ const [r1, r2, r3, r4] = await Promise.all([
             </select>
           </label>
 
-          {/* NOVO: iniciar nova rodada */}
           <button onClick={startNewRound} className="btn">
             Iniciar nova rodada
           </button>
@@ -839,7 +803,6 @@ const [r1, r2, r3, r4] = await Promise.all([
 
         {err && <div className="text-red-600 mb-2 md:col-span-2">{err}</div>}
 
-        {/* Coluna esquerda: Declarações */}
         <section className="card p-4 md:p-5">
           <h3 className="h2 mb-3">Declarações</h3>
           <div className="grid gap-3 max-h-[520px] overflow-y-auto pr-1">
@@ -847,31 +810,21 @@ const [r1, r2, r3, r4] = await Promise.all([
               <button
                 key={c.id}
                 onClick={() => setSelected(c)}
-                className={[
-                  "text-left p-3 rounded-xl border transition",
-                  selected?.id === c.id ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200 hover:bg-gray-50"
-                ].join(" ")}
+                className={["text-left p-3 rounded-xl border transition", selected?.id === c.id ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200 hover:bg-gray-50"].join(" ")}
               >
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">{c.playerName}</span>
-                  <span className={[
-                    "text-xs px-2 py-1 rounded-md",
-                    c.serverCheck === "valid" ? "bg-emerald-100 text-emerald-800" :
-                    c.serverCheck === "invalid" ? "bg-red-100 text-red-800" :
-                    "bg-gray-100 text-gray-700"
-                  ].join(" ")}>{c.serverCheck}</span>
+                  <span className={["text-xs px-2 py-1 rounded-md", c.serverCheck === "valid" ? "bg-emerald-100 text-emerald-800" : c.serverCheck === "invalid" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-700"].join(" ")}>
+                    {c.serverCheck}
+                  </span>
                 </div>
-                {/* NOVO: info da rodada na declaração */}
-                <div className="text-xs text-gray-600">
-                  R#{c.roundNumber ?? "?"} • {c.roundRule ?? "-"} • {new Date(c.declaredAt).toLocaleTimeString()}
-                </div>
+                <div className="text-xs text-gray-600">R#{c.roundNumber ?? "?"} • {c.roundRule ?? "-"} • {new Date(c.declaredAt).toLocaleTimeString()}</div>
               </button>
             ))}
             {!claims.length && <div className="text-gray-600 text-sm">Nenhuma declaração ainda.</div>}
           </div>
         </section>
 
-         {/* Coluna direita: Cartela + Últimos sorteios */}
         <section className="card p-4 md:p-5 md:col-span-2">
           <h3 className="h2 mb-3">Cartela</h3>
           {!selected && <div className="text-gray-600">Selecione uma declaração ao lado.</div>}
@@ -881,16 +834,33 @@ const [r1, r2, r3, r4] = await Promise.all([
             <h4 className="font-semibold mb-2 text-gray-800">Últimos sorteios</h4>
             <div className="flex flex-wrap gap-2">
               {(state?.draws || []).slice(-24).reverse().map((d: any) => (
-                <span key={d.index} className="px-3 py-1 rounded-xl border border-gray-200 bg-white text-sm">{d.text}</span>
+                <span key={d.index} className="px-3 py-1 rounded-xl border border-gray-200 bg-white text-sm">
+                  {d.text}
+                </span>
               ))}
               {!state?.draws?.length && <span className="text-gray-600 text-sm">Ainda não há sorteios.</span>}
             </div>
           </div>
         </section>
-        
 
-
-        {/* Se quiser que a Cartela ocupe as duas colunas, troque a section acima por: className="card p-4 md:p-5 md:col-span-2" */}
+        {/* Ranking geral */}
+        <section className="card p-4 md:p-5 md:col-span-2">
+          <h3 className="h2 mb-3">Ranking geral</h3>
+          {!stats?.leaderboard?.length && <div className="text-gray-600 text-sm">Ainda sem vencedores.</div>}
+          {!!stats?.leaderboard?.length && (
+            <ol className="grid md:grid-cols-2 gap-2">
+              {stats.leaderboard.map((p, i) => (
+                <li key={p.playerId} className="flex items-center justify-between rounded-xl border bg-white px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-500 w-6 text-right">{i + 1}º</span>
+                    <span className="font-medium">{p.playerName}</span>
+                  </div>
+                  <span className="text-sm rounded-md px-2 py-1 bg-emerald-50 text-emerald-700">{p.wins} vitória(s)</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       </main>
       <footer className="py-6 text-center text-xs text-gray-500">
         © {new Date().getFullYear()} Desenvolvimento: Claudio Silva • Se Não Você, Quem?
@@ -898,7 +868,6 @@ const [r1, r2, r3, r4] = await Promise.all([
     </div>
   );
 }
-
 
 function ClaimBoard({ claim }: { claim: any }) {
   const layout: string[][] = claim.layout;
@@ -912,13 +881,7 @@ function ClaimBoard({ claim }: { claim: any }) {
           const k = `${r},${c}`;
           const marked = set.has(k);
           return (
-            <div
-              key={k}
-              className={[
-                "px-3 py-3 rounded-xl border text-sm font-semibold",
-                marked ? "bg-emerald-100 border-emerald-300" : "bg-gray-50 border-gray-200"
-              ].join(" ")}
-            >
+            <div key={k} className={["px-3 py-3 rounded-xl border text-sm font-semibold", marked ? "bg-emerald-100 border-emerald-300" : "bg-gray-50 border-gray-200"].join(" ")}>
               {t}
             </div>
           );
