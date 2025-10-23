@@ -2,17 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
 // —— Wake Lock types (compat) — não sobrescrever addEventListener —— 
-declare global {
-  interface WakeLockSentinel {
-    readonly released: boolean;
-    release: () => Promise<void>;
-  }
-  interface Navigator {
-    wakeLock?: {
-      request: (type: "screen") => Promise<WakeLockSentinel>;
-    };
-  }
-}
+// Tipos locais (evitam conflito com lib.dom)
+type WakeLockAny = {
+  released?: boolean;
+  release: () => Promise<void>;
+};
 
 const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
 const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http://localhost:10000";
@@ -405,12 +399,13 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
 
   // —— Fullscreen & Wake Lock ——
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
-  const [wakeSupported, setWakeSupported] = useState<boolean>(false);
+const [wakeLock, setWakeLock] = useState<WakeLockAny | null>(null);
+const [wakeSupported, setWakeSupported] = useState<boolean>(false);
+
 
   // Suporte a Wake Lock e listener de fullscreen
   useEffect(() => {
-    setWakeSupported(!!navigator.wakeLock);
+    setWakeSupported(!!(navigator as any).wakeLock);
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
@@ -435,28 +430,30 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
     else enterFullscreen();
   }
 
-  async function requestWake() {
-    if (!navigator.wakeLock) return;
-    try {
-      const sent = await navigator.wakeLock.request("screen");
-      setWakeLock(sent);
-      // algumas implementações expõem 'onrelease' ou 'addEventListener'
-((sent as any).addEventListener)?.("release", () => setWakeLock(null));
+async function requestWake() {
+  const api = (navigator as any).wakeLock;
+  if (!api?.request) return;
+  try {
+    const sent: WakeLockAny = await api.request("screen");
+    setWakeLock(sent);
+    ((sent as any).addEventListener)?.("release", () => setWakeLock(null));
+    (sent as any).onrelease = () => setWakeLock(null);
+  } catch (e) {
+    console.warn("wake lock request failed", e);
+    setWakeLock(null);
+  }
+}
 
-    } catch (e) {
-      console.warn("wake lock request failed", e);
-      setWakeLock(null);
-    }
+async function releaseWake() {
+  try {
+    if (wakeLock) await wakeLock.release();
+  } catch (e) {
+    console.warn("wake lock release failed", e);
+  } finally {
+    setWakeLock(null);
   }
-  async function releaseWake() {
-    try {
-      if (wakeLock) await wakeLock.release();
-    } catch (e) {
-      console.warn("wake lock release failed", e);
-    } finally {
-      setWakeLock(null);
-    }
-  }
+}
+
   function toggleWake() {
     if (wakeLock) releaseWake();
     else requestWake();
@@ -464,7 +461,8 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
 
   // Reaquisição ao voltar a visibilidade
   useEffect(() => {
-    if (!navigator.wakeLock) return;
+    if (!(navigator as any).wakeLock) return;
+    
     const onVisibility = () => {
       if (document.visibilityState === "visible" && wakeLock) {
         requestWake();
