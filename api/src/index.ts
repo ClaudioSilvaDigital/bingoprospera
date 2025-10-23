@@ -68,16 +68,16 @@ function serverCheckByRule(
   if (rule === '1-linha')  return lines >= 1 ? 'valid' : 'invalid';
   if (rule === '2-linhas') return lines >= 2 ? 'valid' : 'invalid';
   if (rule === '3-linhas') return lines >= 3 ? 'valid' : 'invalid';
+
   if (rule === 'cheia') {
     const total = layout.length * (layout[0]?.length || 0);
     return marks.length >= total ? 'valid' : 'invalid';
   }
+
   return 'invalid';
 }
 
 
-  return 'invalid';
-}
 
 // ---------------------------------------------------------------------
 // Estado em memória
