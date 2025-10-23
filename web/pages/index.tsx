@@ -367,6 +367,11 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
   const [state, setState] = useState<{ draws: any[]; rows: number; cols: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string>("");
+const [stats, setStats] = useState<{
+  totals: { roundsCount: number; uniquePlayersWithWin: number; validClaims: number };
+  winnersByRound: Record<number, Array<{ playerId: string; playerName: string; declaredAt: number; roundRule: string | null }>>;
+  leaderboard: Array<{ playerId: string; playerName: string; wins: number }>;
+} | null>(null);
 
   // NOVO: estado de rodada
   const [round, setRound] = useState<{ number: number; rule: '1-linha'|'2-linhas'|'3-linhas'|'cheia' } | null>(null);
@@ -377,13 +382,12 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
     let t: any;
     const tick = async () => {
       try {
-        const [r1, r2, r3] = await Promise.all([
-          fetch(`${API_BASE}/sessions/${sessionId}/state`),
-          // Se quiser filtrar apenas pela rodada atual, troque a linha abaixo por:
-          // fetch(`${API_BASE}/sessions/${sessionId}/claims?round=${round?.number ?? ''}`)
-          fetch(`${API_BASE}/sessions/${sessionId}/claims`),
-          fetch(`${API_BASE}/sessions/${sessionId}/round`),
-        ]);
+const [r1, r2, r3, r4] = await Promise.all([
+  fetch(`${API_BASE}/sessions/${sessionId}/state`),
+  fetch(`${API_BASE}/sessions/${sessionId}/claims`),
+  fetch(`${API_BASE}/sessions/${sessionId}/round`),
+  fetch(`${API_BASE}/sessions/${sessionId}/stats`), 
+]);
 
         if (r1.ok) {
           const s = await r1.json();
@@ -547,6 +551,54 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
             {!claims.length && <div className="text-gray-600 text-sm">Nenhuma declaração ainda.</div>}
           </div>
         </section>
+
+        {/* ===== Ranking geral ===== */}
+<section className="card p-4 md:p-5 md:col-span-2">
+  <h3 className="h2 mb-3">Ranking geral</h3>
+  {!stats?.leaderboard?.length && <div className="text-gray-600 text-sm">Ainda sem vencedores.</div>}
+  {!!stats?.leaderboard?.length && (
+    <ol className="grid md:grid-cols-2 gap-2">
+      {stats.leaderboard.map((p, i) => (
+        <li key={p.playerId} className="flex items-center justify-between rounded-xl border bg-white px-3 py-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 w-6 text-right">{i+1}º</span>
+            <span className="font-medium">{p.playerName}</span>
+          </div>
+          <span className="text-sm rounded-md px-2 py-1 bg-emerald-50 text-emerald-700">{p.wins} vitória(s)</span>
+        </li>
+      ))}
+    </ol>
+  )}
+</section>
+
+{/* ===== Vencedores por rodada ===== */}
+<section className="card p-4 md:p-5 md:col-span-2">
+  <h3 className="h2 mb-3">Vencedores por rodada</h3>
+  {!stats?.winnersByRound || !Object.keys(stats.winnersByRound).length ? (
+    <div className="text-gray-600 text-sm">Sem vencedores por enquanto.</div>
+  ) : (
+    <div className="grid gap-4">
+      {Object.keys(stats.winnersByRound).sort((a,b)=>Number(a)-Number(b)).map((rn) => (
+        <div key={rn} className="rounded-xl border bg-white p-3">
+          <div className="mb-2 text-sm text-gray-700">
+            <b>Rodada #{rn}</b> • Regra: <b>{
+              stats.winnersByRound[Number(rn)][0]?.roundRule?.replace('-', ' ') ?? '-'
+            }</b>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {stats.winnersByRound[Number(rn)].map((w) => (
+              <span key={w.playerId}
+                className="rounded-2xl border px-3 py-1 bg-emerald-50 border-emerald-100 text-emerald-800 text-sm">
+                {w.playerName} <span className="text-gray-500">({new Date(w.declaredAt).toLocaleTimeString()})</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</section>
+
 
         {/* Coluna direita: Cartela + Últimos sorteios */}
         <section className="card p-4 md:p-5">
