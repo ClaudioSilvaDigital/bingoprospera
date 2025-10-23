@@ -513,7 +513,7 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
       </main>
 
       <footer className="px-6 py-4 text-center text-white/40 border-t border-white/10">
-        Desenvolvimento: Claudio Silva • Se Não Agora, Quando?
+        Desenvolvimento: Claudio Silva • Se Não Agora, Quando? | Se Não Você, Quem?
       </footer>
     </div>
   );
