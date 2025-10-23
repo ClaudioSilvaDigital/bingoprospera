@@ -8,7 +8,8 @@ const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http
 type Route =
   | { name: "home" }
   | { name: "play"; sessionId: string }
-  | { name: "admin"; sessionId: string };
+  | { name: "admin"; sessionId: string }
+  | { name: "score";  sessionId: string };
 
 function useHashRoute(): Route {
   const [hash, setHash] = useState<string>(typeof window !== "undefined" ? window.location.hash : "");
@@ -17,19 +18,27 @@ function useHashRoute(): Route {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
   let m = hash.match(/^#\/admin\/([A-Za-z0-9_-]{4,})$/);
   if (m) return { name: "admin", sessionId: m[1] };
+
   m = hash.match(/^#\/play\/([A-Za-z0-9_-]{4,})$/);
   if (m) return { name: "play", sessionId: m[1] };
+
+  m = hash.match(/^#\/score\/([A-Za-z0-9_-]{4,})$/); // NOVO
+  if (m) return { name: "score", sessionId: m[1] };
+
   return { name: "home" };
 }
 
 export default function Root() {
   const route = useHashRoute();
   if (route.name === "admin") return <AdminScreen sessionId={route.sessionId} />;
-  if (route.name === "play") return <PlayScreen sessionId={route.sessionId} />;
+  if (route.name === "play")  return <PlayScreen  sessionId={route.sessionId} />;
+  if (route.name === "score") return <ScoreScreen sessionId={route.sessionId} />; // NOVO
   return <HomeScreen />;
 }
+
 
 /* =============== HOME =============== */
 function HomeScreen() {
@@ -281,7 +290,7 @@ useEffect(() => {
       if (!r.ok) throw new Error(data?.error || `Falha: ${r.status}`);
       alert(data?.claim?.serverCheck === "valid"
         ? "Bingo! (validado no servidor)"
-        : "Declaração recebida, o host irá revisar.");
+        : "Grito recebido, a mesa irá revisar.");
     } catch (e: any) {
       alert(e.message || "Erro ao declarar bingo");
     }
@@ -358,6 +367,155 @@ useEffect(() => {
     </div>
   );
 }
+
+function ScoreScreen({ sessionId }: { sessionId: string }) {
+  const [state, setState] = useState<{ draws: any[]; rows: number; cols: number } | null>(null);
+  const [round, setRound] = useState<{ number: number; rule: '1-linha'|'2-linhas'|'3-linhas'|'cheia' } | null>(null);
+  const [stats, setStats] = useState<{
+    winnersByRound: Record<number, Array<{ playerId: string; playerName: string; declaredAt: number; roundRule: string | null }>>;
+    leaderboard: Array<{ playerId: string; playerName: string; wins: number }>;
+  } | null>(null);
+
+  useEffect(() => {
+    let t: any;
+    const tick = async () => {
+      try {
+        const [rState, rRound, rStats] = await Promise.all([
+          fetch(`${API_BASE}/sessions/${sessionId}/state`),
+          fetch(`${API_BASE}/sessions/${sessionId}/round`),
+          fetch(`${API_BASE}/sessions/${sessionId}/stats`),
+        ]);
+        if (rState.ok) setState(await rState.json());
+        if (rRound.ok) setRound(await rRound.json());
+        if (rStats.ok) setStats(await rStats.json());
+      } catch {}
+      t = setTimeout(tick, 3000);
+    };
+    tick();
+    return () => { if (t) clearTimeout(t); };
+  }, [sessionId]);
+
+  const lastDraws = (state?.draws ?? []).slice(-12);
+  const winnersCurrentRound =
+    stats?.winnersByRound && round?.number
+      ? (stats.winnersByRound[round.number] ?? [])
+      : [];
+
+  const playerUrl =
+    (typeof window !== "undefined" ? window.location.origin : "") + `/#/play/${sessionId}`;
+
+  return (
+    <div className="min-h-screen bg-[#0b1320] text-white">
+      <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
+        <div className="text-2xl font-black tracking-wide">Prospera Bingo • Placar</div>
+        <div className="ml-auto text-lg">
+          Sessão <span className="font-mono bg-white/10 px-2 py-1 rounded">{sessionId}</span>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-12 gap-6">
+        <section className="col-span-12 lg:col-span-8">
+          <div className="mb-3 text-white/80">
+            Rodada <b>#{round?.number ?? "-"}</b> • Regra:{" "}
+            <b>
+              {{
+                "1-linha": "1 linha",
+                "2-linhas": "2 linhas",
+                "3-linhas": "3 linhas",
+                "cheia": "Cartela cheia"
+              }[round?.rule ?? "1-linha"]}
+            </b>
+          </div>
+
+          <div className="rounded-2xl bg-white/5 p-4 border border-white/10">
+            <div className="text-white/70 text-sm mb-2">Últimos sorteios</div>
+            <div className="flex flex-wrap gap-3">
+              {lastDraws.map((d, idx) => {
+                const isLast = idx === lastDraws.length - 1;
+                return (
+                  <div
+                    key={d.index}
+                    className={[
+                      "px-4 py-2 rounded-xl border",
+                      isLast
+                        ? "bg-emerald-500/20 border-emerald-400 text-emerald-100 animate-pulse"
+                        : "bg-white/5 border-white/15 text-white"
+                    ].join(" ")}
+                    style={{ fontSize: isLast ? 28 : 22, fontWeight: 700 }}
+                  >
+                    {d.text}
+                  </div>
+                );
+              })}
+              {!lastDraws.length && (
+                <div className="text-white/60">Ainda não há sorteios.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-white/5 p-4 border border-white/10">
+            <div className="text-white/70 text-sm mb-2">Vencedores desta rodada</div>
+            {winnersCurrentRound.length === 0 ? (
+              <div className="text-white/70">Sem vencedores por enquanto.</div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {winnersCurrentRound.map((w) => (
+                  <div
+                    key={w.playerId}
+                    className="px-4 py-2 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-100"
+                    style={{ fontSize: 22, fontWeight: 700 }}
+                  >
+                    {w.playerName}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="col-span-12 lg:col-span-4">
+          <div className="rounded-2xl bg-white/5 p-5 border border-white/10 flex flex-col items-center">
+            <div className="text-center text-white/80 mb-3">Entre na sessão</div>
+            <div className="bg-white p-3 rounded-xl">
+              <QRCodeCanvas value={playerUrl} size={220} />
+            </div>
+            <a
+              href={playerUrl}
+              className="mt-3 text-emerald-300 underline break-all text-center"
+            >
+              {playerUrl}
+            </a>
+            <div className="mt-4 text-white/60 text-sm text-center">
+              Aponte a câmera do celular para o QR Code<br/>ou acesse o link acima.
+            </div>
+          </div>
+
+          {!!stats?.leaderboard?.length && (
+            <div className="mt-6 rounded-2xl bg-white/5 p-4 border border-white/10">
+              <div className="text-white/70 text-sm mb-2">Ranking (sessão)</div>
+              <ol className="space-y-2">
+                {stats.leaderboard.slice(0, 6).map((p, i) => (
+                  <li key={p.playerId} className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span className="w-6 text-right text-white/60">{i + 1}º</span>
+                      <span className="font-semibold">{p.playerName}</span>
+                    </span>
+                    <span className="text-white/70">{p.wins}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </aside>
+      </main>
+
+      <footer className="px-6 py-4 text-center text-white/40 border-t border-white/10">
+        Placar em tempo real — Prospera Bingo
+      </footer>
+    </div>
+  );
+}
+
 
 /* =============== ADMIN =============== */
 
@@ -474,6 +632,16 @@ const [r1, r2, r3, r4] = await Promise.all([
           </div>
           <div className="font-bold">Prospera Bingo • Gestão</div>
           <a href="/" className="ml-auto text-sm text-prospera-primary underline">Home</a>
+    {/* NOVO: link rápido para o placar (telão) */}
+    <a
+      href={`/#/score/${sessionId}`}
+      target="_blank"
+      rel="noreferrer"
+      className="text-sm text-prospera-primary underline ml-3"
+      title="Abrir placar em outra aba (telão)"
+    >
+      Abrir Placar (telão)
+    </a>
         </div>
       </header>
 
