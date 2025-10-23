@@ -170,7 +170,7 @@ function HomeScreen() {
       </main>
 
       <footer className="py-6 text-center text-xs text-gray-500">
-        © {new Date().getFullYear()} Claudio Silva • Se Não Agora, Quando?
+        © {new Date().getFullYear()} Desenvolvimento: Claudio Silva • Se Não Agora, Quando?
       </footer>
     </div>
   );
@@ -510,7 +510,7 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
       </main>
 
       <footer className="px-6 py-4 text-center text-white/40 border-t border-white/10">
-        Placar em tempo real — Prospera Bingo
+        Desenvolvimento: Claudio Silva • Se Não Agora, Quando?
       </footer>
     </div>
   );
