@@ -179,10 +179,9 @@ function PlayScreen({ sessionId }: { sessionId: string }) {
 
   const keyRC = (r: number, c: number) => `${r},${c}`;
 
-
-
   // === Rodada atual (número e regra) ===
-const [round, setRound] = useState<{ number: number; rule: '1-linha' | '2-linhas' | '3-linhas' | 'cheia' } | null>(null);
+const [round, setRound] = useState<{ number:number; rule:'1-linha'|'2-linhas'|'3-linhas'|'cheia'}|null>(null);
+
 
 useEffect(() => {
   let t: any;
@@ -370,7 +369,8 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
   const [err, setErr] = useState<string>("");
 
   // NOVO: estado de rodada
-  const [round, setRound] = useState<{ number: number; rule: '1-linha' | '2-linhas' | '3-linhas' | 'cheia' } | null>(null);
+  const [round, setRound] = useState<{ number: number; rule: '1-linha'|'2-linhas'|'3-linhas'|'cheia' } | null>(null);
+
 
   // === Polling: state + claims + round ===
   useEffect(() => {
@@ -424,7 +424,7 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
   }
 
   // NOVO: trocar regra da rodada atual
-  async function changeRule(rule: '1-linha' | '2-linhas' | '3-linhas' | 'cheia') {
+  async function changeRule(rule: '1-linha'|'2-linhas'|'3-linhas'|'cheia') {
     setErr("");
     try {
       const r = await fetch(`${API_BASE}/sessions/${sessionId}/round/rule`, {
