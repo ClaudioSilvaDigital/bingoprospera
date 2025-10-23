@@ -745,7 +745,7 @@ const [r1, r2, r3, r4] = await Promise.all([
         {/* Se quiser que a Cartela ocupe as duas colunas, troque a section acima por: className="card p-4 md:p-5 md:col-span-2" */}
       </main>
       <footer className="py-6 text-center text-xs text-gray-500">
-        © {new Date().getFullYear()} Desenvolvimento: Claudio Silva • Se Não Agora, Quando?
+        © {new Date().getFullYear()} Desenvolvimento: Claudio Silva • Se Não Você, Quem?
       </footer>
     </div>
   );
