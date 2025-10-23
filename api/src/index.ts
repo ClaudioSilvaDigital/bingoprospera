@@ -362,6 +362,79 @@ app.get('/sessions/:id/claims', async (req, res) => {
       orderBy: { declaredAt: 'asc' }
     });
 
+    // ============================================================
+// GET /sessions/:id/stats
+// Estatísticas consolidadas da sessão:
+// - winnersByRound: vencedores por rodada (primeira claim 'valid' por player/round)
+// - leaderboard: ranking geral por jogador (#vitórias)
+// - totals: contagens diversas
+// Aceita ?round=N para focar só em uma rodada.
+// ============================================================
+app.get('/sessions/:id/stats', async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    const roundParam = req.query.round ? Number(req.query.round) : undefined;
+
+    // Busca claims válidas da sessão (opcionalmente filtradas por rodada)
+    const rows = await prisma.claim.findMany({
+      where: {
+        sessionId,
+        serverCheck: 'valid',
+        ...(roundParam ? { roundNumber: roundParam } : {}),
+      },
+      orderBy: { declaredAt: 'asc' },
+    });
+
+    // winnersByRound: só a PRIMEIRA claim válida de cada player em cada rodada
+    const seen = new Set<string>(); // `${roundNumber}:${playerId}`
+    const winnersByRound: Record<number, Array<{
+      playerId: string;
+      playerName: string;
+      declaredAt: number;
+      roundRule: string | null;
+    }>> = {};
+
+    for (const r of rows) {
+      const key = `${r.roundNumber}:${r.playerId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const item = {
+        playerId: r.playerId,
+        playerName: r.playerName,
+        declaredAt: new Date(r.declaredAt).getTime(),
+        roundRule: r.roundRule,
+      };
+      const rn = r.roundNumber ?? 0;
+      (winnersByRound[rn] ||= []).push(item);
+    }
+
+    // leaderboard: total de vitórias por jogador (contando chaves únicas acima)
+    const winCountByPlayer = new Map<string, { playerId: string; playerName: string; wins: number }>();
+    for (const rn of Object.keys(winnersByRound)) {
+      for (const w of winnersByRound[Number(rn)]) {
+        const cur = winCountByPlayer.get(w.playerId) || { playerId: w.playerId, playerName: w.playerName, wins: 0 };
+        cur.wins += 1;
+        winCountByPlayer.set(w.playerId, cur);
+      }
+    }
+    const leaderboard = Array.from(winCountByPlayer.values())
+      .sort((a, b) => b.wins - a.wins || a.playerName.localeCompare(b.playerName));
+
+    // totals
+    const totals = {
+      roundsCount: Object.keys(winnersByRound).length,
+      uniquePlayersWithWin: leaderboard.length,
+      validClaims: rows.length,
+    };
+
+    return res.json({ totals, winnersByRound, leaderboard });
+  } catch (e: any) {
+    console.error('stats error', e);
+    return res.status(500).json({ error: 'stats_fail' });
+  }
+});
+
     const claims = rows.map(r => ({
       id: r.id,
       sessionId: r.sessionId,
