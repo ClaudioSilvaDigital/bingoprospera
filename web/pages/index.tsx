@@ -499,7 +499,7 @@ function AdminScreen({ sessionId }: { sessionId: string }) {
             >
               <option value="1-linha">1 linha</option>
               <option value="2-linhas">2 linhas</option>
-              <option value="2-linhas">3 linhas</option>
+              <option value="3-linhas">3 linhas</option>
               <option value="cheia">Cartela cheia</option>
             </select>
           </label>
