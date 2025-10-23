@@ -62,18 +62,19 @@ function countCompletedLines(layout: string[][], marks: Array<[number, number]>)
 function serverCheckByRule(
   layout: string[][],
   marks: Array<[number, number]>,
-  rule: '1-linha' | '2-linhas' | 'cheia'
+  rule: '1-linha' | '2-linhas' | '3-linhas' | 'cheia'
 ) {
   const lines = countCompletedLines(layout, marks);
-  if (rule === '1-linha') return lines >= 1 ? 'valid' : 'invalid';
+  if (rule === '1-linha')  return lines >= 1 ? 'valid' : 'invalid';
   if (rule === '2-linhas') return lines >= 2 ? 'valid' : 'invalid';
   if (rule === '3-linhas') return lines >= 3 ? 'valid' : 'invalid';
-  
-  // Cartela cheia = TODAS as células marcadas
   if (rule === 'cheia') {
     const total = layout.length * (layout[0]?.length || 0);
     return marks.length >= total ? 'valid' : 'invalid';
   }
+  return 'invalid';
+}
+
 
   return 'invalid';
 }
@@ -229,9 +230,11 @@ app.post('/sessions/:id/round/start', async (req, res) => {
   const s = SESS[req.params.id];
   if (!s) return res.status(404).json({ error: 'not found' });
 
-  const schema = z.object({
-    rule: z.enum(["1-linha", "2-linhas", "3-linhas", "cheia"]).default('1-linha')
-  });
+  // /round/start
+const schema = z.object({
+  rule: z.enum(['1-linha','2-linhas','3-linhas','cheia']).default('1-linha'),
+});
+
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error);
 
@@ -266,9 +269,11 @@ app.post('/sessions/:id/round/rule', async (req, res) => {
   const s = SESS[req.params.id];
   if (!s) return res.status(404).json({ error: 'not found' });
 
-  const schema = z.object({
-    rule: z.enum(["1-linha", "2-linhas", "3-linhas", "cheia"])
-  });
+  // /round/rule
+const schema = z.object({
+  rule: z.enum(['1-linha','2-linhas','3-linhas','cheia']),
+});
+
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error);
 
