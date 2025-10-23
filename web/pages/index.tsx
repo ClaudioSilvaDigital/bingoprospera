@@ -364,6 +364,9 @@ useEffect(() => {
           </section>
         )}
       </main>
+      <footer className="py-6 text-center text-xs text-gray-500">
+        © {new Date().getFullYear()} Desenvolvimento: Claudio Silva • Se Não Agora, Quando?
+      </footer>
     </div>
   );
 }
