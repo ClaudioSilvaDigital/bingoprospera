@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
+// —— Wake Lock types (compat) ——
+declare global {
+  interface WakeLockSentinel {
+    released: boolean;
+    release: () => Promise<void>;
+  }
+  interface Navigator {
+    wakeLock?: {
+      request: (type: "screen") => Promise<WakeLockSentinel>;
+    };
+  }
+}
+
 
 const RAW = process.env.NEXT_PUBLIC_API_BASE as string | undefined;
 const API_BASE = RAW ? (RAW.startsWith("http") ? RAW : `https://${RAW}`) : "http://localhost:10000";
@@ -223,6 +236,76 @@ useEffect(() => {
     }
   }
 
+  async function enterFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (e) {
+      console.error("fullscreen error", e);
+    }
+  }
+
+  async function exitFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch (e) {
+      console.error("exit fullscreen error", e);
+    }
+  }
+
+  function toggleFullscreen() {
+    if (isFullscreen) exitFullscreen();
+    else enterFullscreen();
+  }
+
+    async function requestWake() {
+    if (!navigator.wakeLock) return;
+    try {
+      const sent = await navigator.wakeLock.request("screen");
+      setWakeLock(sent);
+
+      // Se o Wake Lock for liberado pelo SO, tentamos readquirir ao voltar o foco
+      sent.addEventListener?.("release", () => {
+        setWakeLock(null);
+      });
+    } catch (e) {
+      console.warn("wake lock request failed", e);
+      setWakeLock(null);
+    }
+  }
+
+  async function releaseWake() {
+    try {
+      if (wakeLock) {
+        await wakeLock.release();
+      }
+    } catch (e) {
+      console.warn("wake lock release failed", e);
+    } finally {
+      setWakeLock(null);
+    }
+  }
+
+  function toggleWake() {
+    if (wakeLock) releaseWake();
+    else requestWake();
+  }
+
+    // Requisita novamente o Wake Lock quando a aba volta a ficar visível
+  useEffect(() => {
+    if (!navigator.wakeLock) return;
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && wakeLock) {
+        // Se tínhamos um wakeLock antes, tentamos readquirir.
+        requestWake();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wakeLock]);
+
+
+  
   useEffect(() => {
     let t: any;
     const tick = async () => {
@@ -361,6 +444,47 @@ useEffect(() => {
               <span className="subtle">• Marcas: <b>{marks.size}</b></span>
               <button onClick={claim} className="btn ml-auto">Gritar BINGO!</button>
             </div>
+
+
+      <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
+        <div className="text-2xl font-black tracking-wide">Prospera Bingo • Placar</div>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="text-lg">
+            Sessão <span className="font-mono bg-white/10 px-2 py-1 rounded">{sessionId}</span>
+          </div>
+
+          {/* —— Botão Tela Cheia —— */}
+          <button
+            onClick={toggleFullscreen}
+            className="px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 transition text-sm"
+            title={isFullscreen ? "Sair de tela cheia (Esc)" : "Entrar em tela cheia"}
+          >
+            {isFullscreen ? "Sair Tela Cheia" : "Tela Cheia"}
+          </button>
+
+          {/* —— Botão Wake Lock (bloqueio de sono) —— */}
+          <button
+            onClick={toggleWake}
+            disabled={!wakeSupported}
+            className={[
+              "px-3 py-2 rounded-lg border transition text-sm",
+              wakeSupported
+                ? (wakeLock ? "border-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/25"
+                             : "border-white/20 bg-white/10 hover:bg-white/15")
+                : "border-white/10 bg-white/5 opacity-50 cursor-not-allowed"
+            ].join(" ")}
+            title={
+              wakeSupported
+                ? (wakeLock ? "Liberar bloqueio de sono" : "Impedir que a tela apague")
+                : "Wake Lock não suportado neste dispositivo/navegador"
+            }
+          >
+            {wakeLock ? "Manter Acordo: ON" : "Manter Acordo: OFF"}
+          </button>
+        </div>
+      </header>
+
+            
           </section>
         )}
       </main>
@@ -378,6 +502,30 @@ function ScoreScreen({ sessionId }: { sessionId: string }) {
     winnersByRound: Record<number, Array<{ playerId: string; playerName: string; declaredAt: number; roundRule: string | null }>>;
     leaderboard: Array<{ playerId: string; playerName: string; wins: number }>;
   } | null>(null);
+
+    // —— Fullscreen & Wake Lock ——
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
+  const [wakeSupported, setWakeSupported] = useState<boolean>(false);
+
+    // Suporte a Wake Lock e listener de fullscreen
+  useEffect(() => {
+    setWakeSupported(!!navigator.wakeLock);
+
+    const onFsChange = () => {
+      const fs =
+        !!document.fullscreenElement ||
+        // webkit/ms prefixes não são necessários na maioria dos browsers modernos,
+        // mas mantemos a checagem padrão.
+        false;
+      setIsFullscreen(fs);
+    };
+
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  
 
   useEffect(() => {
     let t: any;
