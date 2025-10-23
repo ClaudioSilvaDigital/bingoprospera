@@ -552,6 +552,23 @@ const [r1, r2, r3, r4] = await Promise.all([
           </div>
         </section>
 
+         {/* Coluna direita: Cartela + Últimos sorteios */}
+        <section className="card p-4 md:p-5 md:col-span-2">
+          <h3 className="h2 mb-3">Cartela</h3>
+          {!selected && <div className="text-gray-600">Selecione uma declaração ao lado.</div>}
+          {selected && <ClaimBoard claim={selected} />}
+
+          <div className="mt-4">
+            <h4 className="font-semibold mb-2 text-gray-800">Últimos sorteios</h4>
+            <div className="flex flex-wrap gap-2">
+              {(state?.draws || []).slice(-24).reverse().map((d: any) => (
+                <span key={d.index} className="px-3 py-1 rounded-xl border border-gray-200 bg-white text-sm">{d.text}</span>
+              ))}
+              {!state?.draws?.length && <span className="text-gray-600 text-sm">Ainda não há sorteios.</span>}
+            </div>
+          </div>
+        </section>
+        
         {/* ===== Ranking geral ===== */}
 <section className="card p-4 md:p-5 md:col-span-2">
   <h3 className="h2 mb-3">Ranking geral</h3>
@@ -598,24 +615,6 @@ const [r1, r2, r3, r4] = await Promise.all([
     </div>
   )}
 </section>
-
-
-        {/* Coluna direita: Cartela + Últimos sorteios */}
-        <section className="card p-4 md:p-5 md:col-span-2">
-          <h3 className="h2 mb-3">Cartela</h3>
-          {!selected && <div className="text-gray-600">Selecione uma declaração ao lado.</div>}
-          {selected && <ClaimBoard claim={selected} />}
-
-          <div className="mt-4">
-            <h4 className="font-semibold mb-2 text-gray-800">Últimos sorteios</h4>
-            <div className="flex flex-wrap gap-2">
-              {(state?.draws || []).slice(-24).reverse().map((d: any) => (
-                <span key={d.index} className="px-3 py-1 rounded-xl border border-gray-200 bg-white text-sm">{d.text}</span>
-              ))}
-              {!state?.draws?.length && <span className="text-gray-600 text-sm">Ainda não há sorteios.</span>}
-            </div>
-          </div>
-        </section>
 
         {/* Se quiser que a Cartela ocupe as duas colunas, troque a section acima por: className="card p-4 md:p-5 md:col-span-2" */}
       </main>
