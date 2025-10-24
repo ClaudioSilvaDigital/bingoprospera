@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
 
+
 // —— Wake Lock types (compat) — não sobrescrever addEventListener —— 
 // Tipos locais (evitam conflito com lib.dom)
 type WakeLockAny = {
