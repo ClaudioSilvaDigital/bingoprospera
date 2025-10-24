@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
 
 // —— Wake Lock types (compat) — não sobrescrever addEventListener —— 
 // Tipos locais (evitam conflito com lib.dom)
@@ -506,38 +507,44 @@ async function releaseWake() {
       <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
         <div className="text-2xl font-black tracking-wide">Prospera Bingo • Placar</div>
         <div className="ml-auto flex items-center gap-3">
-          <div className="text-lg">
-            Sessão <span className="font-mono bg-white/10 px-2 py-1 rounded">{sessionId}</span>
-          </div>
-          <button
-            onClick={toggleFullscreen}
-            className="px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 transition text-sm"
-            title={isFullscreen ? "Sair de tela cheia (Esc)" : "Entrar em tela cheia"}
-          >
-            {isFullscreen ? "Sair Tela Cheia" : "Tela Cheia"}
-          </button>
-          <button
-            onClick={toggleWake}
-            disabled={!wakeSupported}
-            className={[
-              "px-3 py-2 rounded-lg border transition text-sm",
-              wakeSupported
-                ? wakeLock
-                  ? "border-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/25"
-                  : "border-white/20 bg-white/10 hover:bg-white/15"
-                : "border-white/10 bg-white/5 opacity-50 cursor-not-allowed",
-            ].join(" ")}
-            title={
-              wakeSupported
-                ? wakeLock
-                  ? "Liberar bloqueio de sono"
-                  : "Impedir que a tela apague"
-                : "Wake Lock não suportado neste dispositivo/navegador"
-            }
-          >
-            {wakeLock ? "Manter Acordo: ON" : "Manter Acordo: OFF"}
-          </button>
-        </div>
+<div className="ml-auto flex items-center gap-3">
+  <div className="text-lg">
+    Sessão <span className="font-mono bg-white/10 px-2 py-1 rounded">{sessionId}</span>
+  </div>
+
+  {/* —— Botão Tela Cheia —— */}
+  <button
+    onClick={toggleFullscreen}
+    className="px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 transition text-sm flex items-center gap-2"
+    title={isFullscreen ? "Sair de tela cheia (Esc)" : "Entrar em tela cheia"}
+  >
+    {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+    <span>{isFullscreen ? "Sair" : "Tela Cheia"}</span>
+  </button>
+
+  {/* —— Botão Wake Lock (bloqueio de sono) —— */}
+  <button
+    onClick={toggleWake}
+    disabled={!wakeSupported}
+    className={[
+      "px-3 py-2 rounded-lg border transition text-sm flex items-center gap-2",
+      wakeSupported
+        ? (wakeLock
+            ? "border-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/25"
+            : "border-white/20 bg-white/10 hover:bg-white/15")
+        : "border-white/10 bg-white/5 opacity-50 cursor-not-allowed"
+    ].join(" ")}
+    title={
+      wakeSupported
+        ? (wakeLock ? "Liberar bloqueio de sono" : "Impedir que a tela apague")
+        : "Wake Lock não suportado neste dispositivo/navegador"
+    }
+  >
+    {wakeLock ? <Sun size={16} /> : <Moon size={16} />}
+    <span>{wakeLock ? "Acordo: ON" : "Acordo: OFF"}</span>
+  </button>
+</div>
+         
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-12 gap-6">
